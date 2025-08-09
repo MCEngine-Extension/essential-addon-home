@@ -13,9 +13,10 @@ import java.util.UUID;
 /**
  * Handles logic for the {@code /home} command.
  * <ul>
- *   <li>{@code /home} or {@code /home tp} — Teleports to the saved home (current world)</li>
- *   <li>{@code /home set} — Saves your current X/Y/Z as home</li>
- *   <li>{@code /home delete} — Deletes your saved home</li>
+ *   <li>{@code /home <name>} — Teleports to the named home (current world)</li>
+ *   <li>{@code /home tp <name>} — Teleports to the named home</li>
+ *   <li>{@code /home set <name>} — Saves your current X/Y/Z as a named home</li>
+ *   <li>{@code /home delete <name>} — Deletes the named home</li>
  * </ul>
  * <p>
  * Note: The database structure stores only X/Y/Z, so the teleport uses the
@@ -46,7 +47,7 @@ public class HomeCommand implements CommandExecutor {
      * @param sender  Command sender.
      * @param command The command object.
      * @param label   Alias used.
-     * @param args    Arguments: {@code set|tp|delete}
+     * @param args    Arguments.
      * @return {@code true} if handled.
      */
     @Override
@@ -56,47 +57,90 @@ public class HomeCommand implements CommandExecutor {
             return true;
         }
 
+        if (args.length == 0) {
+            sender.sendMessage("§7Usage: §b/home <name>§7, §b/home set <name>§7, §b/home tp <name>§7, §b/home delete <name>");
+            return true;
+        }
+
         UUID uuid = player.getUniqueId();
 
-        String sub = args.length == 0 ? "tp" : args[0].toLowerCase();
+        // Support "/home <name>" as teleport
+        String sub = args[0].toLowerCase();
+        if (!sub.equals("set") && !sub.equals("tp") && !sub.equals("delete")) {
+            return handleTeleport(player, uuid, args[0]);
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage("§cPlease provide a home name. Example: §b/home " + sub + " mybase");
+            return true;
+        }
+
+        String name = args[1];
+
         switch (sub) {
             case "set" -> {
+                if (!isValidName(name)) {
+                    player.sendMessage("§cInvalid home name. Use 1–32 letters, numbers, underscores, or dashes.");
+                    return true;
+                }
                 Location loc = player.getLocation();
-                boolean ok = homeDB.setHome(uuid, loc.getX(), loc.getY(), loc.getZ());
+                boolean ok = homeDB.setHome(uuid, name, loc.getX(), loc.getY(), loc.getZ());
                 if (ok) {
-                    player.sendMessage(String.format("§aHome set at X: %.2f, Y: %.2f, Z: %.2f.", loc.getX(), loc.getY(), loc.getZ()));
+                    player.sendMessage(String.format("§aHome '%s' set at X: %.2f, Y: %.2f, Z: %.2f.", name, loc.getX(), loc.getY(), loc.getZ()));
                 } else {
                     player.sendMessage("§cFailed to save your home. Check console for details.");
                 }
             }
             case "delete" -> {
-                boolean ok = homeDB.deleteHome(uuid);
+                boolean ok = homeDB.deleteHome(uuid, name);
                 if (ok) {
-                    player.sendMessage("§aYour home has been deleted.");
+                    player.sendMessage("§aHome '" + name + "' has been deleted.");
                 } else {
-                    player.sendMessage("§eYou don't have a saved home.");
+                    player.sendMessage("§eNo such home: '" + name + "'.");
                 }
             }
-            case "tp" -> {
-                HomeDB.HomeRecord record = homeDB.getHome(uuid);
-                if (record == null) {
-                    player.sendMessage("§eYou don't have a home yet. Use §b/home set§e first.");
-                    return true;
-                }
-                Location dest = player.getLocation().clone();
-                dest.setX(record.locX());
-                dest.setY(record.locY());
-                dest.setZ(record.locZ());
-                boolean ok = player.teleport(dest);
-                if (ok) {
-                    player.sendMessage("§aTeleported to your home.");
-                } else {
-                    player.sendMessage("§cTeleport failed.");
-                }
-            }
-            default -> player.sendMessage("§7Usage: §b/home [set|tp|delete]");
+            case "tp" -> handleTeleport(player, uuid, name);
+            default -> player.sendMessage("§7Usage: §b/home <name>§7, §b/home set <name>§7, §b/home tp <name>§7, §b/home delete <name>");
         }
 
         return true;
+    }
+
+    /**
+     * Teleports a player to a named home if it exists.
+     *
+     * @param player the player to teleport
+     * @param uuid   player's UUID
+     * @param name   home name
+     * @return {@code true} once processed
+     */
+    private boolean handleTeleport(Player player, UUID uuid, String name) {
+        HomeDB.HomeRecord record = homeDB.getHome(uuid, name);
+        if (record == null) {
+            player.sendMessage("§eNo such home: '" + name + "'.");
+            return true;
+        }
+        // Use player's current world (only X/Y/Z stored in DB).
+        var dest = player.getLocation().clone();
+        dest.setX(record.locX());
+        dest.setY(record.locY());
+        dest.setZ(record.locZ());
+        boolean ok = player.teleport(dest);
+        if (ok) {
+            player.sendMessage("§aTeleported to home '" + name + "'.");
+        } else {
+            player.sendMessage("§cTeleport failed.");
+        }
+        return true;
+    }
+
+    /**
+     * Validates home names to reduce SQL/UX issues.
+     *
+     * @param name candidate name
+     * @return true if valid
+     */
+    private boolean isValidName(String name) {
+        return name != null && name.length() >= 1 && name.length() <= 32 && name.matches("^[A-Za-z0-9_-]+$");
     }
 }

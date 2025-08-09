@@ -20,7 +20,7 @@ import java.sql.Connection;
  * Main class for the Essential Home AddOn.
  * <p>
  * Dynamically registers the {@code /home} command and wires the database utility
- * that manages player home coordinates.
+ * that manages player home coordinates with per-player named entries.
  */
 public class Home implements IMCEngineEssentialAddOn {
 
@@ -58,7 +58,7 @@ public class Home implements IMCEngineEssentialAddOn {
                 /** Command logic handler for {@code /home}. */
                 private final HomeCommand handler = new HomeCommand(homeDB, logger);
                 /** Tab completer for {@code /home}. */
-                private final HomeTabCompleter completer = new HomeTabCompleter();
+                private final HomeTabCompleter completer = new HomeTabCompleter(homeDB);
 
                 /**
                  * Executes the {@code /home} command.
@@ -82,8 +82,8 @@ public class Home implements IMCEngineEssentialAddOn {
                 }
             };
 
-            homeCommand.setDescription("Teleport to or manage your home.");
-            homeCommand.setUsage("/home [set|tp|delete]");
+            homeCommand.setDescription("Teleport to or manage your named homes.");
+            homeCommand.setUsage("/home <name> | /home tp <name> | /home set <name> | /home delete <name>");
 
             // Register the command under the plugin's fallback prefix.
             commandMap.register(plugin.getName().toLowerCase(), homeCommand);

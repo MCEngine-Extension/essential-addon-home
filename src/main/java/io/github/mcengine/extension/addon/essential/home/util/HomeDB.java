@@ -6,23 +6,27 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Database helper for the {@code home} table.
  * <p>
- * Schema (as requested):
+ * Updated schema (per request) supports multiple named homes per player:
  * <pre>
- * table home
- *   home_id AUTOINCREMENT,
+ * CREATE TABLE IF NOT EXISTS home (
+ *   home_id     INTEGER PRIMARY KEY AUTOINCREMENT,
  *   player_uuid VARCHAR(36) NOT NULL,
- *   loc_x NOT NULL, loc_y NOT NULL, loc_z NOT NULL
+ *   home_name   TEXT NOT NULL,
+ *   loc_x       REAL NOT NULL,
+ *   loc_y       REAL NOT NULL,
+ *   loc_z       REAL NOT NULL,
+ *   UNIQUE(player_uuid, home_name)
+ * );
  * </pre>
  * <p>
- * Implementation notes:
- * <ul>
- *   <li>Creates a UNIQUE index on {@code player_uuid} so we can upsert a single home per player.</li>
- *   <li>Only X/Y/Z are stored, so teleport uses the player's current world.</li>
- * </ul>
+ * Only X/Y/Z are stored, so teleports use the player's current world.
  */
 public class HomeDB {
 
@@ -55,21 +59,23 @@ public class HomeDB {
 
     /**
      * Creates the {@code home} table if needed.
-     * Adds a UNIQUE constraint on {@code player_uuid} for idempotent updates.
+     * Ensures a UNIQUE constraint on {@code (player_uuid, home_name)}.
      */
     public void createTable() {
         final String sql = """
             CREATE TABLE IF NOT EXISTS home (
                 home_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_uuid VARCHAR(36) NOT NULL UNIQUE,
+                player_uuid VARCHAR(36) NOT NULL,
+                home_name   TEXT NOT NULL,
                 loc_x       REAL NOT NULL,
                 loc_y       REAL NOT NULL,
-                loc_z       REAL NOT NULL
+                loc_z       REAL NOT NULL,
+                UNIQUE(player_uuid, home_name)
             );
             """;
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.execute();
-            logger.info("Home table created or already exists.");
+            logger.info("Home table created or already exists (with name uniqueness per player).");
         } catch (SQLException e) {
             logger.warning("Failed to create 'home' table: " + e.getMessage());
             e.printStackTrace();
@@ -77,47 +83,51 @@ public class HomeDB {
     }
 
     /**
-     * Upserts a player's home coordinates.
+     * Upserts a player's named home coordinates.
      *
-     * @param playerUuid player UUID string
+     * @param playerUuid player UUID
+     * @param name       home name (unique within player's namespace)
      * @param x          X coordinate
      * @param y          Y coordinate
      * @param z          Z coordinate
      * @return {@code true} if changed without error
      */
-    public boolean setHome(java.util.UUID playerUuid, double x, double y, double z) {
+    public boolean setHome(UUID playerUuid, String name, double x, double y, double z) {
         final String upsert = """
-            INSERT INTO home (player_uuid, loc_x, loc_y, loc_z)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(player_uuid) DO UPDATE SET
+            INSERT INTO home (player_uuid, home_name, loc_x, loc_y, loc_z)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(player_uuid, home_name) DO UPDATE SET
               loc_x = excluded.loc_x,
               loc_y = excluded.loc_y,
               loc_z = excluded.loc_z;
             """;
         try (PreparedStatement ps = conn.prepareStatement(upsert)) {
             ps.setString(1, playerUuid.toString());
-            ps.setDouble(2, x);
-            ps.setDouble(3, y);
-            ps.setDouble(4, z);
+            ps.setString(2, name);
+            ps.setDouble(3, x);
+            ps.setDouble(4, y);
+            ps.setDouble(5, z);
             ps.executeUpdate();
             return true;
         } catch (SQLException e) {
-            logger.warning("Failed to upsert home for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to upsert home '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
 
     /**
-     * Looks up a player's saved home.
+     * Looks up a player's named home.
      *
      * @param playerUuid player UUID
+     * @param name       home name
      * @return {@link HomeRecord} or {@code null} if none
      */
-    public HomeRecord getHome(java.util.UUID playerUuid) {
-        final String query = "SELECT loc_x, loc_y, loc_z FROM home WHERE player_uuid = ?";
+    public HomeRecord getHome(UUID playerUuid, String name) {
+        final String query = "SELECT loc_x, loc_y, loc_z FROM home WHERE player_uuid = ? AND home_name = ?";
         try (PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, playerUuid.toString());
+            ps.setString(2, name);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return new HomeRecord(
@@ -128,27 +138,52 @@ public class HomeDB {
                 }
             }
         } catch (SQLException e) {
-            logger.warning("Failed to read home for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to read home '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
         return null;
     }
 
     /**
-     * Deletes a player's saved home.
+     * Deletes a player's named home.
      *
      * @param playerUuid player UUID
+     * @param name       home name
      * @return {@code true} if a row was deleted
      */
-    public boolean deleteHome(java.util.UUID playerUuid) {
-        final String delete = "DELETE FROM home WHERE player_uuid = ?";
+    public boolean deleteHome(UUID playerUuid, String name) {
+        final String delete = "DELETE FROM home WHERE player_uuid = ? AND home_name = ?";
         try (PreparedStatement ps = conn.prepareStatement(delete)) {
             ps.setString(1, playerUuid.toString());
+            ps.setString(2, name);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            logger.warning("Failed to delete home for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to delete home '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * Lists all home names saved by a player.
+     *
+     * @param playerUuid player UUID
+     * @return list of names (possibly empty)
+     */
+    public List<String> listHomeNames(UUID playerUuid) {
+        final String query = "SELECT home_name FROM home WHERE player_uuid = ? ORDER BY home_name COLLATE NOCASE ASC";
+        List<String> names = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, playerUuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    names.add(rs.getString("home_name"));
+                }
+            }
+        } catch (SQLException e) {
+            logger.warning("Failed to list homes for " + playerUuid + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+        return names;
     }
 }
