@@ -21,7 +21,7 @@ public final class HomeCommandUtil {
      */
     private HomeCommandUtil() { }
 
-    public static check(MCEngineExtensionLogger logger) {
+    public static void check(MCEngineExtensionLogger logger) {
         logger.info("Loaded class : HomeCommandUtil");
     }
 
