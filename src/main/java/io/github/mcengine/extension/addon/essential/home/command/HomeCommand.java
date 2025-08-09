@@ -7,6 +7,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.util.Vector;
 
 import java.util.UUID;
 
@@ -115,16 +116,16 @@ public class HomeCommand implements CommandExecutor {
      * @return {@code true} once processed
      */
     private boolean handleTeleport(Player player, UUID uuid, String name) {
-        HomeDB.HomeRecord record = homeDB.getHome(uuid, name);
-        if (record == null) {
+        Vector coords = homeDB.getHome(uuid, name);
+        if (coords == null) {
             player.sendMessage("§eNo such home: '" + name + "'.");
             return true;
         }
         // Use player's current world (only X/Y/Z stored in DB).
         var dest = player.getLocation().clone();
-        dest.setX(record.locX());
-        dest.setY(record.locY());
-        dest.setZ(record.locZ());
+        dest.setX(coords.getX());
+        dest.setY(coords.getY());
+        dest.setZ(coords.getZ());
         boolean ok = player.teleport(dest);
         if (ok) {
             player.sendMessage("§aTeleported to home '" + name + "'.");

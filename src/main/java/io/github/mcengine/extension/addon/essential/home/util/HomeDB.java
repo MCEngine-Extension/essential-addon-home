@@ -1,6 +1,7 @@
 package io.github.mcengine.extension.addon.essential.home.util;
 
 import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
+import org.bukkit.util.Vector;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -35,15 +36,6 @@ public class HomeDB {
 
     /** Logger for reporting status and problems. */
     private final MCEngineExtensionLogger logger;
-
-    /**
-     * Immutable record for a stored home.
-     *
-     * @param locX X coordinate
-     * @param locY Y coordinate
-     * @param locZ Z coordinate
-     */
-    public record HomeRecord(double locX, double locY, double locZ) {}
 
     /**
      * Constructs the DB helper and ensures the table exists.
@@ -117,20 +109,23 @@ public class HomeDB {
     }
 
     /**
-     * Looks up a player's named home.
+     * Looks up a player's named home and returns its coordinates.
+     * <p>
+     * Returns a {@link Vector} containing (x, y, z) or {@code null} if not found.
+     * Using a Bukkit type here avoids cross-classloader issues with custom nested types.
      *
      * @param playerUuid player UUID
      * @param name       home name
-     * @return {@link HomeRecord} or {@code null} if none
+     * @return {@link Vector} of (x,y,z) or {@code null} if none
      */
-    public HomeRecord getHome(UUID playerUuid, String name) {
+    public Vector getHome(UUID playerUuid, String name) {
         final String query = "SELECT loc_x, loc_y, loc_z FROM home WHERE player_uuid = ? AND home_name = ?";
         try (PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, playerUuid.toString());
             ps.setString(2, name);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new HomeRecord(
+                    return new Vector(
                         rs.getDouble("loc_x"),
                         rs.getDouble("loc_y"),
                         rs.getDouble("loc_z")
