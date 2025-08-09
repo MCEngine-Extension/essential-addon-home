@@ -56,7 +56,7 @@ public class Home implements IMCEngineEssentialAddOn {
             // Define the /home command shell that forwards to our executor & completer.
             Command homeCommand = new Command("home") {
                 /** Command logic handler for {@code /home}. */
-                private final HomeCommand handler = new HomeCommand(homeDB, logger);
+                private final HomeCommand handler = new HomeCommand(homeDB, logger, plugin);
                 /** Tab completer for {@code /home}. */
                 private final HomeTabCompleter completer = new HomeTabCompleter(homeDB);
 
