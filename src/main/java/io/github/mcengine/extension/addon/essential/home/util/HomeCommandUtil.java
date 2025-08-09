@@ -5,7 +5,6 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 /**
@@ -14,9 +13,7 @@ import org.bukkit.util.Vector;
  */
 public final class HomeCommandUtil {
 
-    /**
-     * Private constructor to prevent instantiation of this utility class.
-     */
+    /** Prevent instantiation. */
     private HomeCommandUtil() { }
 
     /**
@@ -48,7 +45,7 @@ public final class HomeCommandUtil {
      * @param player the player to render in front of
      * @param digit  the digit to render
      */
-    private static void renderDigitParticles(Player player, int digit) {
+    static void renderDigitParticles(Player player, int digit) {
         if (digit < 0 || digit > 9) return;
 
         // Simple 5x3 bitmap fonts for digits 0–9 (true = draw particle).
@@ -160,62 +157,6 @@ public final class HomeCommandUtil {
                     0.0  // extra speed
                 );
             }
-        }
-    }
-
-    /**
-     * Named, public static task to avoid generating an anonymous inner class
-     * (`HomeCommandUtil$1`) that can be stripped or fail to load in some build
-     * pipelines/shading setups.
-     */
-    public static final class TeleportCountdownTask extends BukkitRunnable {
-
-        /** Player to teleport. */
-        private final Player player;
-        /** Friendly home name for messages. */
-        private final String name;
-        /** Destination coordinates (X/Y/Z). */
-        private final Vector coords;
-        /** Seconds remaining in the countdown (5→1). */
-        private int seconds = 5;
-
-        /**
-         * Constructs the countdown task.
-         *
-         * @param player target player
-         * @param name   home name
-         * @param coords destination coordinates
-         */
-        public TeleportCountdownTask(Player player, String name, Vector coords) {
-            this.player = player;
-            this.name = name;
-            this.coords = coords;
-        }
-
-        @Override
-        public void run() {
-            if (!player.isOnline()) {
-                cancel();
-                return;
-            }
-
-            HomeCommandUtil.renderDigitParticles(player, seconds);
-
-            if (seconds <= 1) {
-                Location dest = player.getLocation().clone();
-                dest.setX(coords.getX());
-                dest.setY(coords.getY());
-                dest.setZ(coords.getZ());
-                boolean ok = player.teleport(dest);
-                if (ok) {
-                    player.sendMessage("§aTeleported to home '" + name + "'.");
-                } else {
-                    player.sendMessage("§cTeleport failed.");
-                }
-                cancel();
-                return;
-            }
-            seconds--;
         }
     }
 }
