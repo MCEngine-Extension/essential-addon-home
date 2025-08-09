@@ -84,6 +84,11 @@ public class HomeCommand implements CommandExecutor {
                     player.sendMessage("§cInvalid home name. Use 1–32 letters, numbers, underscores, or dashes.");
                     return true;
                 }
+                // NEW: prevent overwriting an existing home with the same name
+                if (homeDB.homeExists(uuid, name)) {
+                    player.sendMessage("§cThis name is already in use. Please use another name or delete it first.");
+                    return true;
+                }
                 Location loc = player.getLocation();
                 boolean ok = homeDB.setHome(uuid, name, loc.getX(), loc.getY(), loc.getZ());
                 if (ok) {

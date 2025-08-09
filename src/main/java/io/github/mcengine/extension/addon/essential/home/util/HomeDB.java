@@ -14,7 +14,7 @@ import java.util.UUID;
 /**
  * Database helper for the {@code home} table.
  * <p>
- * Updated schema (per request) supports multiple named homes per player:
+ * Updated schema supports multiple named homes per player:
  * <pre>
  * CREATE TABLE IF NOT EXISTS home (
  *   home_id     INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,25 +75,44 @@ public class HomeDB {
     }
 
     /**
-     * Upserts a player's named home coordinates.
+     * Checks whether a player already has a home with the given name.
+     *
+     * @param playerUuid player UUID
+     * @param name       home name
+     * @return {@code true} if a row exists; {@code false} otherwise
+     */
+    public boolean homeExists(UUID playerUuid, String name) {
+        final String sql = "SELECT 1 FROM home WHERE player_uuid = ? AND home_name = ? LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUuid.toString());
+            ps.setString(2, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            logger.warning("Failed to check existing home '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Inserts a new player's named home coordinates.
+     * <p>
+     * This method does <strong>not</strong> overwrite an existing home with the same
+     * {@code (player_uuid, home_name)}. Call {@link #homeExists(UUID, String)} first
+     * if you want to present a friendly message before attempting the insert.
      *
      * @param playerUuid player UUID
      * @param name       home name (unique within player's namespace)
      * @param x          X coordinate
      * @param y          Y coordinate
      * @param z          Z coordinate
-     * @return {@code true} if changed without error
+     * @return {@code true} if inserted without error; {@code false} otherwise
      */
     public boolean setHome(UUID playerUuid, String name, double x, double y, double z) {
-        final String upsert = """
-            INSERT INTO home (player_uuid, home_name, loc_x, loc_y, loc_z)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(player_uuid, home_name) DO UPDATE SET
-              loc_x = excluded.loc_x,
-              loc_y = excluded.loc_y,
-              loc_z = excluded.loc_z;
-            """;
-        try (PreparedStatement ps = conn.prepareStatement(upsert)) {
+        final String insert = "INSERT INTO home (player_uuid, home_name, loc_x, loc_y, loc_z) VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(insert)) {
             ps.setString(1, playerUuid.toString());
             ps.setString(2, name);
             ps.setDouble(3, x);
@@ -102,7 +121,8 @@ public class HomeDB {
             ps.executeUpdate();
             return true;
         } catch (SQLException e) {
-            logger.warning("Failed to upsert home '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            // Could be a UNIQUE constraint violation or some other DB error.
+            logger.warning("Failed to insert home '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
