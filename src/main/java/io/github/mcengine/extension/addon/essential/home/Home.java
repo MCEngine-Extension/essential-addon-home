@@ -8,6 +8,7 @@ import io.github.mcengine.extension.addon.essential.home.command.HomeCommand;
 import io.github.mcengine.extension.addon.essential.home.tabcompleter.HomeTabCompleter;
 import io.github.mcengine.extension.addon.essential.home.util.HomeCommandUtil;
 import io.github.mcengine.extension.addon.essential.home.util.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.util.TeleportCountdownTask;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -44,7 +45,9 @@ public class Home implements IMCEngineEssentialAddOn {
         // Initialize logger first so all messages go through a consistent channel.
         this.logger = new MCEngineExtensionLogger(plugin, "AddOn", "EssentialHome");
 
+        // Sanity checks for class loading
         HomeCommandUtil.check(logger);
+        TeleportCountdownTask.check(logger);
 
         try {
             // Obtain DB connection from Essential common API and create the table.

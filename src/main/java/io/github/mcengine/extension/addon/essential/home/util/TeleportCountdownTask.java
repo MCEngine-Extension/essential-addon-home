@@ -1,5 +1,6 @@
 package io.github.mcengine.extension.addon.essential.home.util;
 
+import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -34,6 +35,15 @@ public final class TeleportCountdownTask extends BukkitRunnable {
         this.player = player;
         this.name = name;
         this.coords = coords;
+    }
+
+    /**
+     * Simple sanity check logger.
+     *
+     * @param logger the logger used to print a load confirmation
+     */
+    public static void check(MCEngineExtensionLogger logger) {
+        logger.info("Loaded class : TeleportCountdownTask");
     }
 
     @Override
