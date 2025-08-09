@@ -6,6 +6,7 @@ import io.github.mcengine.api.essential.extension.addon.IMCEngineEssentialAddOn;
 import io.github.mcengine.common.essential.MCEngineEssentialCommon;
 import io.github.mcengine.extension.addon.essential.home.command.HomeCommand;
 import io.github.mcengine.extension.addon.essential.home.tabcompleter.HomeTabCompleter;
+import io.github.mcengine.extension.addon.essential.home.util.HomeCommandUtil;
 import io.github.mcengine.extension.addon.essential.home.util.HomeDB;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -42,6 +43,8 @@ public class Home implements IMCEngineEssentialAddOn {
     public void onLoad(Plugin plugin) {
         // Initialize logger first so all messages go through a consistent channel.
         this.logger = new MCEngineExtensionLogger(plugin, "AddOn", "EssentialHome");
+
+        HomeCommandUtil.check(logger);
 
         try {
             // Obtain DB connection from Essential common API and create the table.

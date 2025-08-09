@@ -1,5 +1,7 @@
 package io.github.mcengine.extension.addon.essential.home.util;
 
+import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -18,6 +20,10 @@ public final class HomeCommandUtil {
      * Private constructor to prevent instantiation of this utility class.
      */
     private HomeCommandUtil() { }
+
+    public static check(MCEngineExtensionLogger logger) {
+        logger.info("Loaded class : HomeCommandUtil");
+    }
 
     /**
      * Starts a countdown timer (5 seconds) and teleports the player to the given coordinates.
