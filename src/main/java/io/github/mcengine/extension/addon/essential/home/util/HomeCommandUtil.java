@@ -5,6 +5,7 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 /**
@@ -12,6 +13,11 @@ import org.bukkit.util.Vector;
  * for the HomeCommand teleport process.
  */
 public final class HomeCommandUtil {
+
+    /**
+     * Private constructor to prevent instantiation of this utility class.
+     */
+    private HomeCommandUtil() { }
 
     /**
      * Starts a countdown timer (5 seconds) and teleports the player to the given coordinates.
@@ -25,20 +31,22 @@ public final class HomeCommandUtil {
     public static void startTeleportCountdown(Plugin plugin, Player player, String name, Vector coords) {
         player.sendMessage("§7Teleporting to §b" + name + "§7 in §b5§7 seconds...");
 
-        final int taskId = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+        new BukkitRunnable() {
             /** Remaining seconds in the countdown (5→1). */
             private int seconds = 5;
 
             @Override
             public void run() {
                 if (!player.isOnline()) {
-                    Bukkit.getScheduler().cancelTask(taskId);
+                    // Player left; stop countdown.
+                    cancel();
                     return;
                 }
 
                 renderDigitParticles(player, seconds);
 
                 if (seconds <= 1) {
+                    // Time to teleport.
                     Location dest = player.getLocation().clone();
                     dest.setX(coords.getX());
                     dest.setY(coords.getY());
@@ -49,11 +57,12 @@ public final class HomeCommandUtil {
                     } else {
                         player.sendMessage("§cTeleport failed.");
                     }
-                    Bukkit.getScheduler().cancelTask(taskId);
+                    cancel();
+                    return;
                 }
                 seconds--;
             }
-        }, 0L, 20L).getTaskId();
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 
     /**
