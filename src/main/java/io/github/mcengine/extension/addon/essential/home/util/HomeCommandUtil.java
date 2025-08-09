@@ -1,8 +1,6 @@
 package io.github.mcengine.extension.addon.essential.home.util;
 
 import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
-
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Player;
@@ -21,6 +19,11 @@ public final class HomeCommandUtil {
      */
     private HomeCommandUtil() { }
 
+    /**
+     * Simple sanity check logger (kept as provided by the user).
+     *
+     * @param logger the logger used to print a load confirmation
+     */
     public static void check(MCEngineExtensionLogger logger) {
         logger.info("Loaded class : HomeCommandUtil");
     }
@@ -36,39 +39,7 @@ public final class HomeCommandUtil {
      */
     public static void startTeleportCountdown(Plugin plugin, Player player, String name, Vector coords) {
         player.sendMessage("§7Teleporting to §b" + name + "§7 in §b5§7 seconds...");
-
-        new BukkitRunnable() {
-            /** Remaining seconds in the countdown (5→1). */
-            private int seconds = 5;
-
-            @Override
-            public void run() {
-                if (!player.isOnline()) {
-                    // Player left; stop countdown.
-                    cancel();
-                    return;
-                }
-
-                renderDigitParticles(player, seconds);
-
-                if (seconds <= 1) {
-                    // Time to teleport.
-                    Location dest = player.getLocation().clone();
-                    dest.setX(coords.getX());
-                    dest.setY(coords.getY());
-                    dest.setZ(coords.getZ());
-                    boolean ok = player.teleport(dest);
-                    if (ok) {
-                        player.sendMessage("§aTeleported to home '" + name + "'.");
-                    } else {
-                        player.sendMessage("§cTeleport failed.");
-                    }
-                    cancel();
-                    return;
-                }
-                seconds--;
-            }
-        }.runTaskTimer(plugin, 0L, 20L);
+        new TeleportCountdownTask(player, name, coords).runTaskTimer(plugin, 0L, 20L);
     }
 
     /**
@@ -181,7 +152,6 @@ public final class HomeCommandUtil {
                 Vector offset = right.clone().multiply(col * spacing * scale)
                     .subtract(up.clone().multiply(row * spacing * scale));
                 Vector pos = topLeft.clone().add(offset);
-                // Use a ubiquitous particle to avoid version-specific enum issues.
                 player.getWorld().spawnParticle(
                     Particle.CRIT,
                     pos.getX(), pos.getY(), pos.getZ(),
@@ -190,6 +160,62 @@ public final class HomeCommandUtil {
                     0.0  // extra speed
                 );
             }
+        }
+    }
+
+    /**
+     * Named, public static task to avoid generating an anonymous inner class
+     * (`HomeCommandUtil$1`) that can be stripped or fail to load in some build
+     * pipelines/shading setups.
+     */
+    public static final class TeleportCountdownTask extends BukkitRunnable {
+
+        /** Player to teleport. */
+        private final Player player;
+        /** Friendly home name for messages. */
+        private final String name;
+        /** Destination coordinates (X/Y/Z). */
+        private final Vector coords;
+        /** Seconds remaining in the countdown (5→1). */
+        private int seconds = 5;
+
+        /**
+         * Constructs the countdown task.
+         *
+         * @param player target player
+         * @param name   home name
+         * @param coords destination coordinates
+         */
+        public TeleportCountdownTask(Player player, String name, Vector coords) {
+            this.player = player;
+            this.name = name;
+            this.coords = coords;
+        }
+
+        @Override
+        public void run() {
+            if (!player.isOnline()) {
+                cancel();
+                return;
+            }
+
+            HomeCommandUtil.renderDigitParticles(player, seconds);
+
+            if (seconds <= 1) {
+                Location dest = player.getLocation().clone();
+                dest.setX(coords.getX());
+                dest.setY(coords.getY());
+                dest.setZ(coords.getZ());
+                boolean ok = player.teleport(dest);
+                if (ok) {
+                    player.sendMessage("§aTeleported to home '" + name + "'.");
+                } else {
+                    player.sendMessage("§cTeleport failed.");
+                }
+                cancel();
+                return;
+            }
+            seconds--;
         }
     }
 }
