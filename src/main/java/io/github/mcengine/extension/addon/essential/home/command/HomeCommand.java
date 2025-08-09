@@ -1,10 +1,9 @@
 package io.github.mcengine.extension.addon.essential.home.command;
 
-import io.github.mcengine.extension.addon.essential.home.util.HomeDB;
 import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
-import org.bukkit.Bukkit;
+import io.github.mcengine.extension.addon.essential.home.util.HomeCommandUtil;
+import io.github.mcengine.extension.addon.essential.home.util.HomeDB;
 import org.bukkit.Location;
-import org.bukkit.Particle;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -92,7 +91,7 @@ public class HomeCommand implements CommandExecutor {
                     player.sendMessage("§cInvalid home name. Use 1–32 letters, numbers, underscores, or dashes.");
                     return true;
                 }
-                // Prevent overwriting an existing home with the same name.
+                // Prevent creating a home with a duplicate name for this player.
                 if (homeDB.homeExists(uuid, name)) {
                     player.sendMessage("§cThis name is already in use. Please use another name or delete it first.");
                     return true;
@@ -121,7 +120,7 @@ public class HomeCommand implements CommandExecutor {
     }
 
     /**
-     * Starts a 5-second visual countdown and then teleports the player
+     * Begins a 5-second visual countdown and then teleports the player
      * to the requested home if it exists.
      *
      * @param player the player to teleport
@@ -135,167 +134,8 @@ public class HomeCommand implements CommandExecutor {
             player.sendMessage("§eNo such home: '" + name + "'.");
             return true;
         }
-
-        player.sendMessage("§7Teleporting to §b" + name + "§7 in §b5§7 seconds...");
-        final int taskId = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
-            /** Remaining seconds in the countdown (5→1). */
-            private int seconds = 5;
-
-            @Override
-            public void run() {
-                if (!player.isOnline()) {
-                    Bukkit.getScheduler().cancelTask(thisTask());
-                    return;
-                }
-                // Show the current number as particles in front of the player's view.
-                renderDigitParticles(player, seconds);
-
-                if (seconds <= 1) {
-                    // Time to teleport.
-                    Location dest = player.getLocation().clone();
-                    dest.setX(coords.getX());
-                    dest.setY(coords.getY());
-                    dest.setZ(coords.getZ());
-                    boolean ok = player.teleport(dest);
-                    if (ok) {
-                        player.sendMessage("§aTeleported to home '" + name + "'.");
-                    } else {
-                        player.sendMessage("§cTeleport failed.");
-                    }
-                    Bukkit.getScheduler().cancelTask(thisTask());
-                }
-                seconds--;
-            }
-
-            /** Helper to get this scheduled task id safely. */
-            private int thisTask() { return taskId; }
-        }, 0L, 20L).getTaskId();
-
+        HomeCommandUtil.startTeleportCountdown(plugin, player, name, coords);
         return true;
-    }
-
-    /**
-     * Renders a single digit (1–9, 0 supported as well) as a small grid of particles
-     * in front of the player's eyes, aligned to their view direction.
-     *
-     * @param player the player to render in front of
-     * @param digit  number to render (0–9)
-     */
-    private void renderDigitParticles(Player player, int digit) {
-        if (digit < 0 || digit > 9) return;
-
-        // Simple 5x3 bitmap fonts for digits 0–9 (true = draw particle).
-        // Rows: top→bottom, Cols: left→right.
-        final boolean[][][] DIGITS = new boolean[][][]{
-            { // 0
-                {true, true, true},
-                {true, false, true},
-                {true, false, true},
-                {true, false, true},
-                {true, true, true}
-            },
-            { // 1
-                {false, true, false},
-                {true,  true, false},
-                {false, true, false},
-                {false, true, false},
-                {true,  true, true}
-            },
-            { // 2
-                {true,  true, true},
-                {false, false, true},
-                {true,  true, true},
-                {true,  false, false},
-                {true,  true,  true}
-            },
-            { // 3
-                {true,  true, true},
-                {false, false, true},
-                {true,  true,  true},
-                {false, false, true},
-                {true,  true,  true}
-            },
-            { // 4
-                {true, false, true},
-                {true, false, true},
-                {true, true,  true},
-                {false, false, true},
-                {false, false, true}
-            },
-            { // 5
-                {true,  true,  true},
-                {true,  false, false},
-                {true,  true,  true},
-                {false, false, true},
-                {true,  true,  true}
-            },
-            { // 6
-                {true,  true,  true},
-                {true,  false, false},
-                {true,  true,  true},
-                {true,  false,  true},
-                {true,  true,  true}
-            },
-            { // 7
-                {true,  true,  true},
-                {false, false, true},
-                {false, true,  false},
-                {false, true,  false},
-                {false, true,  false}
-            },
-            { // 8
-                {true,  true,  true},
-                {true,  false,  true},
-                {true,  true,  true},
-                {true,  false,  true},
-                {true,  true,  true}
-            },
-            { // 9
-                {true,  true,  true},
-                {true,  false,  true},
-                {true,  true,  true},
-                {false, false,  true},
-                {true,  true,  true}
-            }
-        };
-
-        boolean[][] map = DIGITS[digit];
-
-        // Geometry relative to player's view.
-        Location eye = player.getEyeLocation();
-        Vector forward = eye.getDirection().normalize();
-        Vector up = new Vector(0, 1, 0);
-        Vector right = forward.clone().crossProduct(up).normalize();
-        up = right.clone().crossProduct(forward).normalize(); // ensure orthogonal up
-
-        double distance = 1.6;      // meters in front of eyes
-        double spacing = 0.12;      // grid spacing
-        double scale = 1.0;         // overall size multiplier
-        Vector base = eye.toVector().add(forward.multiply(distance));
-
-        // Center the 3-column digit horizontally and 5 rows vertically.
-        double width = 3 * spacing * scale;
-        double height = 5 * spacing * scale;
-        Vector topLeft = base.clone()
-                .subtract(right.clone().multiply(width / 2.0))
-                .add(up.clone().multiply(height / 2.0));
-
-        // Render particles for each "pixel".
-        for (int row = 0; row < 5; row++) {
-            for (int col = 0; col < 3; col++) {
-                if (!map[row][col]) continue;
-                Vector offset = right.clone().multiply(col * spacing * scale)
-                        .subtract(up.clone().multiply(row * spacing * scale));
-                Vector pos = topLeft.clone().add(offset);
-                player.getWorld().spawnParticle(
-                        Particle.REDSTONE,
-                        pos.getX(), pos.getY(), pos.getZ(),
-                        8, // count
-                        0.01, 0.01, 0.01, // small spread
-                        new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 255, 255), 1.3f) // white dots
-                );
-            }
-        }
     }
 
     /**
