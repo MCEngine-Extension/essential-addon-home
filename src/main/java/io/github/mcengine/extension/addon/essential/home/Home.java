@@ -93,9 +93,6 @@ public class Home implements IMCEngineEssentialAddOn {
             logger.warning("Failed to initialize Home AddOn: " + e.getMessage());
             e.printStackTrace();
         }
-
-        // Provide a stable identifier for this add-on.
-        MCEngineCoreApi.setId("mcengine-essential-home");
     }
 
     /**
