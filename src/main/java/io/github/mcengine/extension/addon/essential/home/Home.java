@@ -6,35 +6,53 @@ import io.github.mcengine.api.essential.extension.addon.IMCEngineEssentialAddOn;
 import io.github.mcengine.common.essential.MCEngineEssentialCommon;
 import io.github.mcengine.extension.addon.essential.home.command.HomeCommand;
 import io.github.mcengine.extension.addon.essential.home.tabcompleter.HomeTabCompleter;
+import io.github.mcengine.extension.addon.essential.home.util.HomeConfigUtil;
 import io.github.mcengine.extension.addon.essential.home.util.HomeDB;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.sql.Connection;
 
 /**
  * Main class for the Essential Home AddOn.
- * <p>
- * Dynamically registers the {@code /home} command and wires the database utility
- * that manages player home coordinates with per-player named entries.
+ *
+ * <p>Dynamically registers the {@code /home} command and wires the database utility
+ * that manages player home coordinates with per-player named entries. On load,
+ * it ensures a Home configuration exists under
+ * {@code extensions/addons/configs/MCEngineHome/config.yml} and validates that
+ * the {@code license} value is {@code "free"} prior to enabling features.</p>
  */
 public class Home implements IMCEngineEssentialAddOn {
 
-    /** Logger wrapper dedicated to this add-on. */
+    /** Logger wrapper dedicated to this add-on. Provides a consistent log channel. */
     private MCEngineExtensionLogger logger;
 
     /** Shared DB utility for CRUD against the {@code home} table. */
     private HomeDB homeDB;
 
     /**
+     * Configuration folder path for the Essential Home AddOn.
+     * Used as the base for {@code config.yml}.
+     */
+    private final String folderPath = "extensions/addons/configs/MCEngineHome";
+
+    /**
      * Initializes the Home AddOn.
-     * <p>
-     * Registers {@code /home} via the Bukkit {@link CommandMap} and prepares the
-     * required database table using {@link HomeDB}.
+     *
+     * <p>Steps:</p>
+     * <ol>
+     *   <li>Initialize a dedicated logger.</li>
+     *   <li>Create/verify {@code config.yml} using {@link HomeConfigUtil}.</li>
+     *   <li>Validate {@code license} in config is {@code "free"}.</li>
+     *   <li>Obtain a DB connection and prepare the table via {@link HomeDB}.</li>
+     *   <li>Register the {@code /home} command through Bukkit's {@link CommandMap}.</li>
+     * </ol>
      *
      * @param plugin The Bukkit plugin instance.
      */
@@ -44,6 +62,19 @@ public class Home implements IMCEngineEssentialAddOn {
         this.logger = new MCEngineExtensionLogger(plugin, "AddOn", "EssentialHome");
 
         try {
+            // Ensure config.yml exists (mirrors "Entity" add-on approach)
+            HomeConfigUtil.createConfig(plugin, folderPath);
+
+            // Load config and validate license
+            File configFile = new File(plugin.getDataFolder(), folderPath + "/config.yml");
+            YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+            String licenseType = config.getString("license", "free");
+
+            if (!"free".equalsIgnoreCase(licenseType)) {
+                logger.warning("License is not 'free'. Disabling Essential Home AddOn.");
+                return;
+            }
+
             // Obtain DB connection from Essential common API and create the table.
             Connection conn = MCEngineEssentialCommon.getApi().getDBConnection();
             this.homeDB = new HomeDB(conn, logger);
