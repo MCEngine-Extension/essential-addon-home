@@ -1,5 +1,6 @@
 package io.github.mcengine.extension.addon.essential.home.util;
 
+import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
@@ -26,8 +27,9 @@ public final class HomeConfigUtil {
      * @param plugin     The plugin instance used to resolve the data folder.
      * @param folderPath The folder path relative to the plugin's data directory
      *                   (e.g., "extensions/addons/configs/MCEngineHome").
+     * @param logger     Logger for reporting creation outcomes.
      */
-    public static void createConfig(Plugin plugin, String folderPath) {
+    public static void createConfig(Plugin plugin, String folderPath, MCEngineExtensionLogger logger) {
         File configFile = new File(plugin.getDataFolder(), folderPath + "/config.yml");
 
         if (configFile.exists()) {
@@ -36,7 +38,7 @@ public final class HomeConfigUtil {
 
         File configDir = configFile.getParentFile();
         if (!configDir.exists() && !configDir.mkdirs()) {
-            System.err.println("Failed to create Home config directory: " + configDir.getAbsolutePath());
+            logger.warning("Failed to create Home config directory: " + configDir.getAbsolutePath());
             return;
         }
 
@@ -48,9 +50,9 @@ public final class HomeConfigUtil {
 
         try {
             config.save(configFile);
-            System.out.println("Created default Home config: " + configFile.getAbsolutePath());
+            logger.info("Created default Home config: " + configFile.getAbsolutePath());
         } catch (IOException e) {
-            System.err.println("Failed to save Home config: " + e.getMessage());
+            logger.warning("Failed to save Home config: " + e.getMessage());
             e.printStackTrace();
         }
     }

@@ -30,10 +30,14 @@ import java.sql.Connection;
  */
 public class Home implements IMCEngineEssentialAddOn {
 
-    /** Logger wrapper dedicated to this add-on. Provides a consistent log channel. */
+    /**
+     * Logger wrapper dedicated to this add-on. Provides a consistent log channel.
+     */
     private MCEngineExtensionLogger logger;
 
-    /** Shared DB utility for CRUD against the {@code home} table. */
+    /**
+     * Shared DB utility for CRUD against the {@code home} table.
+     */
     private HomeDB homeDB;
 
     /**
@@ -62,8 +66,8 @@ public class Home implements IMCEngineEssentialAddOn {
         this.logger = new MCEngineExtensionLogger(plugin, "AddOn", "EssentialHome");
 
         try {
-            // Ensure config.yml exists (mirrors "Entity" add-on approach)
-            HomeConfigUtil.createConfig(plugin, folderPath);
+            // Ensure config.yml exists
+            HomeConfigUtil.createConfig(plugin, folderPath, logger);
 
             // Load config and validate license
             File configFile = new File(plugin.getDataFolder(), folderPath + "/config.yml");
