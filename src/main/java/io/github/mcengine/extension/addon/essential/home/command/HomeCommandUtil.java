@@ -1,6 +1,7 @@
 package io.github.mcengine.extension.addon.essential.home.command;
 
 import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
@@ -65,30 +66,43 @@ public final class HomeCommandUtil {
     }
 
     /**
-     * Handles {@code /home limit <add|minus> <int>} operations.
+     * Handles {@code /home limit <add|minus> <player> <int>} operations for online players only.
      *
-     * @param player the player executing the command.
-     * @param uuid   player's UUID.
+     * <p>Permissions:</p>
+     * <ul>
+     *   <li>{@code mcengine.essential.home.limit.add} for {@code add}</li>
+     *   <li>{@code mcengine.essential.home.limit.minus} for {@code minus}</li>
+     * </ul>
+     *
+     * @param executor the player executing the command.
+     * @param executorUuid executor's UUID (unused but kept for parity).
      * @param args   full argument array.
      * @param homeDB database accessor.
      * @return {@code true} once processed.
      */
-    public static boolean handleLimit(Player player, UUID uuid, String[] args, HomeDB homeDB) {
-        if (args.length < 3) {
-            player.sendMessage("§cUsage: §b/home limit <add|minus> <int>");
+    public static boolean handleLimit(Player executor, UUID executorUuid, String[] args, HomeDB homeDB) {
+        if (args.length < 4) {
+            executor.sendMessage("§cUsage: §b/home limit <add|minus> <player> <int>");
             return true;
         }
 
         String action = args[1].toLowerCase();
-        String amountStr = args[2];
+        String targetName = args[2];
+        String amountStr = args[3];
 
         // Permission checks
-        if (action.equals("add") && !player.hasPermission("mcengine.essential.home.limit.add")) {
-            player.sendMessage("§cYou lack permission: §7mcengine.essential.home.limit.add");
+        if (action.equals("add") && !executor.hasPermission("mcengine.essential.home.limit.add")) {
+            executor.sendMessage("§cYou lack permission: §7mcengine.essential.home.limit.add");
             return true;
         }
-        if (action.equals("minus") && !player.hasPermission("mcengine.essential.home.limit.minus")) {
-            player.sendMessage("§cYou lack permission: §7mcengine.essential.home.limit.minus");
+        if (action.equals("minus") && !executor.hasPermission("mcengine.essential.home.limit.minus")) {
+            executor.sendMessage("§cYou lack permission: §7mcengine.essential.home.limit.minus");
+            return true;
+        }
+
+        Player target = Bukkit.getPlayerExact(targetName);
+        if (target == null || !target.isOnline()) {
+            executor.sendMessage("§cPlayer §e" + targetName + "§c is not online.");
             return true;
         }
 
@@ -96,19 +110,20 @@ public final class HomeCommandUtil {
         try {
             amount = Integer.parseInt(amountStr);
         } catch (NumberFormatException nfe) {
-            player.sendMessage("§cAmount must be an integer. Example: §b/home limit " + action + " 1");
+            executor.sendMessage("§cAmount must be an integer. Example: §b/home limit " + action + " " + targetName + " 1");
             return true;
         }
         if (amount <= 0) {
-            player.sendMessage("§cAmount must be greater than zero.");
+            executor.sendMessage("§cAmount must be greater than zero.");
             return true;
         }
 
-        int current = homeDB.getHomeLimit(uuid);
+        UUID targetUuid = target.getUniqueId();
+        int current = homeDB.getHomeLimit(targetUuid);
 
         // Unlimited handling
         if (current < 0) {
-            player.sendMessage("§eYour home limit is currently §6unlimited§e; this command has no effect.");
+            executor.sendMessage("§e" + target.getName() + "§e currently has §6unlimited§e home limit; this command has no effect.");
             return true;
         }
 
@@ -117,23 +132,26 @@ public final class HomeCommandUtil {
             case "add" -> newLimit = current + amount;
             case "minus" -> newLimit = Math.max(0, current - amount);
             default -> {
-                player.sendMessage("§cInvalid action. Use §badd§c or §bminus§c.");
+                executor.sendMessage("§cInvalid action. Use §badd§c or §bminus§c.");
                 return true;
             }
         }
 
-        boolean ok = homeDB.setHomeLimit(uuid, newLimit);
+        boolean ok = homeDB.setHomeLimit(targetUuid, newLimit);
         if (!ok) {
-            player.sendMessage("§cFailed to update your home limit. Check console for details.");
+            executor.sendMessage("§cFailed to update home limit for §e" + target.getName() + "§c. Check console for details.");
             return true;
         }
 
-        int count = homeDB.getHomeCount(uuid);
+        int count = homeDB.getHomeCount(targetUuid);
         if (newLimit >= 0 && count > newLimit) {
-            player.sendMessage("§eYour new limit is §6" + newLimit + "§e, but you currently have §6" + count + "§e homes. You won't be able to set new homes until you delete some.");
+            executor.sendMessage("§eNew limit for §6" + target.getName() + "§e is §6" + newLimit + "§e, but they currently have §6" + count + "§e homes.");
         }
 
-        player.sendMessage("§aHome limit updated: §f" + current + " §7→ §b" + newLimit + "§a.");
+        executor.sendMessage("§aHome limit updated for §b" + target.getName() + "§a: §f" + current + " §7→ §b" + newLimit + "§a.");
+        if (!executor.getUniqueId().equals(targetUuid)) {
+            target.sendMessage("§eYour home limit was updated by §6" + executor.getName() + "§e: §f" + current + " §7→ §b" + newLimit + "§e.");
+        }
         return true;
     }
 }

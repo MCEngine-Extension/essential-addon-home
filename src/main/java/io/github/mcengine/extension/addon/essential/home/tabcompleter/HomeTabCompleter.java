@@ -1,6 +1,7 @@
 package io.github.mcengine.extension.addon.essential.home.tabcompleter;
 
 import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -14,8 +15,9 @@ import java.util.List;
 /**
  * Tab-completion for the {@code /home} command.
  * <p>
- * Offers base subcommands: {@code set}, {@code tp}, and {@code delete},
- * {@code limit}, and dynamically suggests the player's saved home names.
+ * Offers base subcommands: {@code set}, {@code tp}, {@code delete}, {@code limit},
+ * and dynamically suggests the player's saved home names. For {@code limit},
+ * suggests actions, online players, and common integer amounts.
  */
 public class HomeTabCompleter implements TabCompleter {
 
@@ -75,10 +77,23 @@ public class HomeTabCompleter implements TabCompleter {
         }
 
         if (args.length == 3 && args[0].equalsIgnoreCase("limit")) {
+            // Suggest online players
+            String prefix = args[2].toLowerCase();
+            List<String> players = new ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                String n = p.getName();
+                if (n.toLowerCase().startsWith(prefix)) {
+                    players.add(n);
+                }
+            }
+            return players;
+        }
+
+        if (args.length == 4 && args[0].equalsIgnoreCase("limit")) {
             if (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("minus")) {
                 // Provide a few sensible integer suggestions.
                 List<String> suggestions = new ArrayList<>(Arrays.asList("1", "2", "3", "5", "10"));
-                String prefix = args[2].toLowerCase();
+                String prefix = args[3].toLowerCase();
                 suggestions.removeIf(s -> !s.toLowerCase().startsWith(prefix));
                 return suggestions;
             }

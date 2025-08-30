@@ -17,8 +17,8 @@ import java.util.UUID;
  *   <li>{@code /home tp <name>} — Teleports to the named home</li>
  *   <li>{@code /home set <name>} — Saves your current X/Y/Z as a named home (respects per-player limit)</li>
  *   <li>{@code /home delete <name>} — Deletes the named home</li>
- *   <li>{@code /home limit add &lt;int&gt;} — Increases your home limit (perm: {@code mcengine.essential.home.limit.add})</li>
- *   <li>{@code /home limit minus &lt;int&gt;} — Decreases your home limit (perm: {@code mcengine.essential.home.limit.minus})</li>
+ *   <li>{@code /home limit add &lt;player&gt; &lt;int&gt;} — Increases target's home limit</li>
+ *   <li>{@code /home limit minus &lt;player&gt; &lt;int&gt;} — Decreases target's home limit</li>
  * </ul>
  * <p>
  * Note: The database structure stores only X/Y/Z, so the teleport uses the
@@ -60,14 +60,14 @@ public class HomeCommand implements CommandExecutor {
         }
 
         if (args.length == 0) {
-            sender.sendMessage("§7Usage: §b/home <name>§7, §b/home set <name>§7, §b/home tp <name>§7, §b/home delete <name>§7, §b/home limit <add|minus> <int>");
+            sender.sendMessage("§7Usage: §b/home <name>§7, §b/home set <name>§7, §b/home tp <name>§7, §b/home delete <name>§7, §b/home limit <add|minus> <player> <int>");
             return true;
         }
 
         UUID uuid = player.getUniqueId();
         String sub = args[0].toLowerCase();
 
-        // /home limit <add|minus> <int>
+        // /home limit <add|minus> <player> <int>
         if (sub.equals("limit")) {
             return HomeCommandUtil.handleLimit(player, uuid, args, homeDB);
         }
@@ -121,7 +121,7 @@ public class HomeCommand implements CommandExecutor {
                 }
             }
             case "tp" -> HomeCommandUtil.handleTeleport(player, uuid, name, homeDB);
-            default -> player.sendMessage("§7Usage: §b/home <name>§7, §b/home set <name>§7, §b/home tp <name>§7, §b/home delete <name>§7, §b/home limit <add|minus> <int>");
+            default -> sender.sendMessage("§7Usage: §b/home <name>§7, §b/home set <name>§7, §b/home tp <name>§7, §b/home delete <name>§7, §b/home limit <add|minus> <player> <int>");
         }
 
         return true;
