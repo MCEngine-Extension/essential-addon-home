@@ -7,7 +7,10 @@ import io.github.mcengine.common.essential.MCEngineEssentialCommon;
 import io.github.mcengine.extension.addon.essential.home.command.HomeCommand;
 import io.github.mcengine.extension.addon.essential.home.tabcompleter.HomeTabCompleter;
 import io.github.mcengine.extension.addon.essential.home.util.HomeConfigUtil;
-import io.github.mcengine.extension.addon.essential.home.util.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.util.db.HomeDBMySQL;
+import io.github.mcengine.extension.addon.essential.home.util.db.HomeDBPostgreSQL;
+import io.github.mcengine.extension.addon.essential.home.util.db.HomeDBSQLite;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -54,7 +57,7 @@ public class Home implements IMCEngineEssentialAddOn {
      *   <li>Initialize a dedicated logger.</li>
      *   <li>Create/verify {@code config.yml} using {@link HomeConfigUtil}.</li>
      *   <li>Validate {@code license} in config is {@code "free"}.</li>
-     *   <li>Obtain a DB connection and prepare the tables via {@link HomeDB}.</li>
+     *   <li>Obtain a DB connection and prepare the tables via a dialect-specific {@link HomeDB}.</li>
      *   <li>Register the {@code /home} command through Bukkit's {@link CommandMap}.</li>
      * </ol>
      *
@@ -66,7 +69,7 @@ public class Home implements IMCEngineEssentialAddOn {
         this.logger = new MCEngineExtensionLogger(plugin, "AddOn", "EssentialHome");
 
         try {
-            // Ensure config.yml exists
+            // Ensure config.yml exists for this AddOn (license, etc.)
             HomeConfigUtil.createConfig(plugin, folderPath, logger);
 
             // Load config and validate license
@@ -79,9 +82,27 @@ public class Home implements IMCEngineEssentialAddOn {
                 return;
             }
 
-            // Obtain DB connection from Essential common API and create the tables.
+            // Obtain DB connection from Essential common API.
             Connection conn = MCEngineEssentialCommon.getApi().getDBConnection();
-            this.homeDB = new HomeDB(conn, logger);
+
+            // Pick DB implementation based on main plugin config: database.type = sqlite|mysql|postgresql
+            String dbType;
+            try {
+                dbType = plugin.getConfig().getString("database.type", "sqlite");
+            } catch (Throwable t) {
+                // Fallback if plugin has no config accessors; default to sqlite
+                dbType = "sqlite";
+            }
+
+            switch (dbType == null ? "sqlite" : dbType.toLowerCase()) {
+                case "mysql" -> this.homeDB = new HomeDBMySQL(conn, logger);
+                case "postgresql", "postgres" -> this.homeDB = new HomeDBPostgreSQL(conn, logger);
+                case "sqlite" -> this.homeDB = new HomeDBSQLite(conn, logger);
+                default -> {
+                    logger.warning("Unknown database.type='" + dbType + "', defaulting to SQLite.");
+                    this.homeDB = new HomeDBSQLite(conn, logger);
+                }
+            }
 
             // Access Bukkit's CommandMap reflectively and register /home.
             Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");

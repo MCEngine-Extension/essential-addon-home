@@ -1,6 +1,6 @@
 package io.github.mcengine.extension.addon.essential.home.command;
 
-import io.github.mcengine.extension.addon.essential.home.util.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
 import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -84,7 +84,7 @@ public class HomeCommand implements CommandExecutor {
                     player.sendMessage("§cInvalid home name. Use 1–32 letters, numbers, underscores, or dashes.");
                     return true;
                 }
-                // NEW: enforce per-player home limit (default 3, -1 = unlimited)
+                // Prevent overwriting; enforce per-player limit (default 3, -1 = unlimited)
                 if (!homeDB.homeExists(uuid, name)) {
                     if (!homeDB.canCreateMoreHomes(uuid)) {
                         int limit = homeDB.getHomeLimit(uuid);

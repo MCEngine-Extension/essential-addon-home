@@ -1,6 +1,6 @@
 package io.github.mcengine.extension.addon.essential.home.tabcompleter;
 
-import io.github.mcengine.extension.addon.essential.home.util.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -69,5 +69,5 @@ public class HomeTabCompleter implements TabCompleter {
         }
 
         return Collections.emptyList();
-        }
+    }
 }
