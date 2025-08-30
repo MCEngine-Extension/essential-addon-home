@@ -16,7 +16,7 @@ import java.util.UUID;
  * <ul>
  *   <li>{@code /home <name>} — Teleports to the named home (current world)</li>
  *   <li>{@code /home tp <name>} — Teleports to the named home</li>
- *   <li>{@code /home set <name>} — Saves your current X/Y/Z as a named home</li>
+ *   <li>{@code /home set <name>} — Saves your current X/Y/Z as a named home (respects per-player limit)</li>
  *   <li>{@code /home delete <name>} — Deletes the named home</li>
  * </ul>
  * <p>
@@ -25,7 +25,7 @@ import java.util.UUID;
  */
 public class HomeCommand implements CommandExecutor {
 
-    /** Database utility for persisting and reading home locations. */
+    /** Database utility for persisting and reading home locations and limits. */
     private final HomeDB homeDB;
 
     /** Logger for user-facing and diagnostic messages. */
@@ -34,8 +34,8 @@ public class HomeCommand implements CommandExecutor {
     /**
      * Constructs a new handler for {@code /home}.
      *
-     * @param homeDB shared DB helper
-     * @param logger add-on logger
+     * @param homeDB shared DB helper.
+     * @param logger add-on logger.
      */
     public HomeCommand(HomeDB homeDB, MCEngineExtensionLogger logger) {
         this.homeDB = homeDB;
@@ -84,11 +84,20 @@ public class HomeCommand implements CommandExecutor {
                     player.sendMessage("§cInvalid home name. Use 1–32 letters, numbers, underscores, or dashes.");
                     return true;
                 }
-                // NEW: prevent overwriting an existing home with the same name
-                if (homeDB.homeExists(uuid, name)) {
+                // NEW: enforce per-player home limit (default 3, -1 = unlimited)
+                if (!homeDB.homeExists(uuid, name)) {
+                    if (!homeDB.canCreateMoreHomes(uuid)) {
+                        int limit = homeDB.getHomeLimit(uuid);
+                        player.sendMessage(limit < 0
+                                ? "§cYou cannot create more homes right now."
+                                : "§cYou have reached your home limit (" + limit + ").");
+                        return true;
+                    }
+                } else {
                     player.sendMessage("§cThis name is already in use. Please use another name or delete it first.");
                     return true;
                 }
+
                 Location loc = player.getLocation();
                 boolean ok = homeDB.setHome(uuid, name, loc.getX(), loc.getY(), loc.getZ());
                 if (ok) {
@@ -115,10 +124,10 @@ public class HomeCommand implements CommandExecutor {
     /**
      * Teleports a player to a named home if it exists.
      *
-     * @param player the player to teleport
-     * @param uuid   player's UUID
-     * @param name   home name
-     * @return {@code true} once processed
+     * @param player the player to teleport.
+     * @param uuid   player's UUID.
+     * @param name   home name.
+     * @return {@code true} once processed.
      */
     private boolean handleTeleport(Player player, UUID uuid, String name) {
         Vector coords = homeDB.getHome(uuid, name);
@@ -143,8 +152,8 @@ public class HomeCommand implements CommandExecutor {
     /**
      * Validates home names to reduce SQL/UX issues.
      *
-     * @param name candidate name
-     * @return true if valid
+     * @param name candidate name.
+     * @return true if valid.
      */
     private boolean isValidName(String name) {
         return name != null && name.length() >= 1 && name.length() <= 32 && name.matches("^[A-Za-z0-9_-]+$");

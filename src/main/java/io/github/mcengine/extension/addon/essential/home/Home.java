@@ -36,7 +36,7 @@ public class Home implements IMCEngineEssentialAddOn {
     private MCEngineExtensionLogger logger;
 
     /**
-     * Shared DB utility for CRUD against the {@code home} table.
+     * Shared DB utility for CRUD against the {@code home}/{@code home_data} tables.
      */
     private HomeDB homeDB;
 
@@ -54,7 +54,7 @@ public class Home implements IMCEngineEssentialAddOn {
      *   <li>Initialize a dedicated logger.</li>
      *   <li>Create/verify {@code config.yml} using {@link HomeConfigUtil}.</li>
      *   <li>Validate {@code license} in config is {@code "free"}.</li>
-     *   <li>Obtain a DB connection and prepare the table via {@link HomeDB}.</li>
+     *   <li>Obtain a DB connection and prepare the tables via {@link HomeDB}.</li>
      *   <li>Register the {@code /home} command through Bukkit's {@link CommandMap}.</li>
      * </ol>
      *
@@ -79,7 +79,7 @@ public class Home implements IMCEngineEssentialAddOn {
                 return;
             }
 
-            // Obtain DB connection from Essential common API and create the table.
+            // Obtain DB connection from Essential common API and create the tables.
             Connection conn = MCEngineEssentialCommon.getApi().getDBConnection();
             this.homeDB = new HomeDB(conn, logger);
 

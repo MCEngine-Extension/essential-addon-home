@@ -25,7 +25,7 @@ public class HomeTabCompleter implements TabCompleter {
     /**
      * Constructs a new tab completer for {@code /home}.
      *
-     * @param homeDB database helper to list names
+     * @param homeDB database helper to list names.
      */
     public HomeTabCompleter(HomeDB homeDB) {
         this.homeDB = homeDB;
@@ -69,5 +69,5 @@ public class HomeTabCompleter implements TabCompleter {
         }
 
         return Collections.emptyList();
-    }
+        }
 }
