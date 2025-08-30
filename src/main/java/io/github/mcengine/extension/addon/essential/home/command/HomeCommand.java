@@ -7,7 +7,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.util.Vector;
 
 import java.util.UUID;
 
@@ -68,14 +67,14 @@ public class HomeCommand implements CommandExecutor {
         UUID uuid = player.getUniqueId();
         String sub = args[0].toLowerCase();
 
-        // New: /home limit <add|minus> <int>
+        // /home limit <add|minus> <int>
         if (sub.equals("limit")) {
-            return handleLimit(player, uuid, args);
+            return HomeCommandUtil.handleLimit(player, uuid, args, homeDB);
         }
 
         // Support "/home <name>" as teleport when not one of the known subcommands.
         if (!sub.equals("set") && !sub.equals("tp") && !sub.equals("delete")) {
-            return handleTeleport(player, uuid, args[0]);
+            return HomeCommandUtil.handleTeleport(player, uuid, args[0], homeDB);
         }
 
         if (args.length < 2) {
@@ -87,7 +86,7 @@ public class HomeCommand implements CommandExecutor {
 
         switch (sub) {
             case "set" -> {
-                if (!isValidName(name)) {
+                if (!HomeCommandUtil.isValidName(name)) {
                     player.sendMessage("§cInvalid home name. Use 1–32 letters, numbers, underscores, or dashes.");
                     return true;
                 }
@@ -121,120 +120,10 @@ public class HomeCommand implements CommandExecutor {
                     player.sendMessage("§eNo such home: '" + name + "'.");
                 }
             }
-            case "tp" -> handleTeleport(player, uuid, name);
+            case "tp" -> HomeCommandUtil.handleTeleport(player, uuid, name, homeDB);
             default -> player.sendMessage("§7Usage: §b/home <name>§7, §b/home set <name>§7, §b/home tp <name>§7, §b/home delete <name>§7, §b/home limit <add|minus> <int>");
         }
 
         return true;
-    }
-
-    /**
-     * Handles {@code /home limit <add|minus> <int>} operations.
-     *
-     * @param player the player executing the command.
-     * @param uuid   player's UUID.
-     * @param args   full argument array.
-     * @return {@code true} once processed.
-     */
-    private boolean handleLimit(Player player, UUID uuid, String[] args) {
-        if (args.length < 3) {
-            player.sendMessage("§cUsage: §b/home limit <add|minus> <int>");
-            return true;
-        }
-
-        String action = args[1].toLowerCase();
-        String amountStr = args[2];
-
-        // Permission checks
-        if (action.equals("add") && !player.hasPermission("mcengine.essential.home.limit.add")) {
-            player.sendMessage("§cYou lack permission: §7mcengine.essential.home.limit.add");
-            return true;
-        }
-        if (action.equals("minus") && !player.hasPermission("mcengine.essential.home.limit.minus")) {
-            player.sendMessage("§cYou lack permission: §7mcengine.essential.home.limit.minus");
-            return true;
-        }
-
-        int amount;
-        try {
-            amount = Integer.parseInt(amountStr);
-        } catch (NumberFormatException nfe) {
-            player.sendMessage("§cAmount must be an integer. Example: §b/home limit " + action + " 1");
-            return true;
-        }
-        if (amount <= 0) {
-            player.sendMessage("§cAmount must be greater than zero.");
-            return true;
-        }
-
-        int current = homeDB.getHomeLimit(uuid);
-
-        // Unlimited handling
-        if (current < 0) {
-            player.sendMessage("§eYour home limit is currently §6unlimited§e; this command has no effect.");
-            return true;
-        }
-
-        int newLimit;
-        switch (action) {
-            case "add" -> newLimit = current + amount;
-            case "minus" -> newLimit = Math.max(0, current - amount);
-            default -> {
-                player.sendMessage("§cInvalid action. Use §badd§c or §bminus§c.");
-                return true;
-            }
-        }
-
-        boolean ok = homeDB.setHomeLimit(uuid, newLimit);
-        if (!ok) {
-            player.sendMessage("§cFailed to update your home limit. Check console for details.");
-            return true;
-        }
-
-        int count = homeDB.getHomeCount(uuid);
-        if (newLimit >= 0 && count > newLimit) {
-            player.sendMessage("§eYour new limit is §6" + newLimit + "§e, but you currently have §6" + count + "§e homes. You won't be able to set new homes until you delete some.");
-        }
-
-        player.sendMessage("§aHome limit updated: §f" + current + " §7→ §b" + newLimit + "§a.");
-        return true;
-    }
-
-    /**
-     * Teleports a player to a named home if it exists.
-     *
-     * @param player the player to teleport.
-     * @param uuid   player's UUID.
-     * @param name   home name.
-     * @return {@code true} once processed.
-     */
-    private boolean handleTeleport(Player player, java.util.UUID uuid, String name) {
-        Vector coords = homeDB.getHome(uuid, name);
-        if (coords == null) {
-            player.sendMessage("§eNo such home: '" + name + "'.");
-            return true;
-        }
-        // Use player's current world (only X/Y/Z stored in DB).
-        var dest = player.getLocation().clone();
-        dest.setX(coords.getX());
-        dest.setY(coords.getY());
-        dest.setZ(coords.getZ());
-        boolean ok = player.teleport(dest);
-        if (ok) {
-            player.sendMessage("§aTeleported to home '" + name + "'.");
-        } else {
-            player.sendMessage("§cTeleport failed.");
-        }
-        return true;
-    }
-
-    /**
-     * Validates home names to reduce SQL/UX issues.
-     *
-     * @param name candidate name.
-     * @return true if valid.
-     */
-    private boolean isValidName(String name) {
-        return name != null && name.length() >= 1 && name.length() <= 32 && name.matches("^[A-Za-z0-9_-]+$");
     }
 }
