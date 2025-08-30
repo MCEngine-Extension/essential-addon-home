@@ -15,7 +15,7 @@ import java.util.List;
  * Tab-completion for the {@code /home} command.
  * <p>
  * Offers base subcommands: {@code set}, {@code tp}, and {@code delete},
- * and dynamically suggests the player's saved home names.
+ * {@code limit}, and dynamically suggests the player's saved home names.
  */
 public class HomeTabCompleter implements TabCompleter {
 
@@ -51,7 +51,7 @@ public class HomeTabCompleter implements TabCompleter {
         if (args.length == 1) {
             // Blend subcommands + existing names; filter by prefix.
             List<String> base = new ArrayList<>();
-            base.addAll(Arrays.asList("set", "tp", "delete"));
+            base.addAll(Arrays.asList("set", "tp", "delete", "limit"));
             base.addAll(names);
             String prefix = args[0].toLowerCase();
             base.removeIf(s -> !s.toLowerCase().startsWith(prefix));
@@ -65,6 +65,22 @@ public class HomeTabCompleter implements TabCompleter {
                 List<String> filtered = new ArrayList<>(names);
                 filtered.removeIf(s -> !s.toLowerCase().startsWith(prefix));
                 return filtered;
+            }
+            if (sub.equals("limit")) {
+                List<String> ops = new ArrayList<>(Arrays.asList("add", "minus"));
+                String prefix = args[1].toLowerCase();
+                ops.removeIf(s -> !s.toLowerCase().startsWith(prefix));
+                return ops;
+            }
+        }
+
+        if (args.length == 3 && args[0].equalsIgnoreCase("limit")) {
+            if (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("minus")) {
+                // Provide a few sensible integer suggestions.
+                List<String> suggestions = new ArrayList<>(Arrays.asList("1", "2", "3", "5", "10"));
+                String prefix = args[2].toLowerCase();
+                suggestions.removeIf(s -> !s.toLowerCase().startsWith(prefix));
+                return suggestions;
             }
         }
 
