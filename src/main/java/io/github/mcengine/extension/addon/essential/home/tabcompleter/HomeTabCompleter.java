@@ -21,7 +21,9 @@ import java.util.List;
  */
 public class HomeTabCompleter implements TabCompleter {
 
-    /** DB accessor to fetch player home names for completion. */
+    /**
+     * DB accessor to fetch player home names for completion.
+     */
     private final HomeDB homeDB;
 
     /**
