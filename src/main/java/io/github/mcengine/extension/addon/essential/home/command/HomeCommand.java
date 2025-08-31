@@ -15,7 +15,6 @@ import java.util.UUID;
  * Handles logic for the {@code /home} command.
  * <ul>
  *   <li>{@code /home} — Opens a GUI listing all homes for click-to-teleport</li>
- *   <li>{@code /home <name>} — Teleports to the named home (current world)</li>
  *   <li>{@code /home tp <name>} — Teleports to the named home</li>
  *   <li>{@code /home set <name>} — Saves your current X/Y/Z as a named home (respects per-player limit)</li>
  *   <li>{@code /home delete <name>} — Deletes the named home</li>
@@ -79,11 +78,7 @@ public class HomeCommand implements CommandExecutor {
             return HomeCommandUtil.handleLimit(player, uuid, args, homeDB);
         }
 
-        // Support "/home <name>" as teleport when not one of the known subcommands.
-        if (!sub.equals("set") && !sub.equals("tp") && !sub.equals("delete")) {
-            return HomeCommandUtil.handleTeleport(player, uuid, args[0], homeDB);
-        }
-
+        // From now on, plain "/home <name>" is NOT supported. Force subcommands only.
         if (args.length < 2) {
             sender.sendMessage("§cPlease provide a home name. Example: §b/home " + sub + " mybase");
             return true;
@@ -128,7 +123,7 @@ public class HomeCommand implements CommandExecutor {
                 }
             }
             case "tp" -> HomeCommandUtil.handleTeleport(player, uuid, name, homeDB);
-            default -> sender.sendMessage("§7Usage: §b/home [opens GUI]§7, §b/home <name>§7, §b/home tp <name>§7, §b/home set <name>§7, §b/home delete <name>§7, §b/home limit <add|minus> <player> <int>");
+            default -> sender.sendMessage("§7Usage: §b/home [opens GUI]§7, §b/home tp <name>§7, §b/home set <name>§7, §b/home delete <name>§7, §b/home limit <add|minus> <player> <int>");
         }
 
         return true;

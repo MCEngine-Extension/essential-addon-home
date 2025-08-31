@@ -13,7 +13,7 @@ import java.util.UUID;
  * <p>Contains static methods for:
  * <ul>
  *   <li>Validating home names</li>
- *   <li>Teleporting to a saved home</li>
+ *   <li>Teleporting to a saved home (used by {@code /home tp <name>})</li>
  *   <li>Adjusting per-player home limits</li>
  * </ul>
  * </p>
