@@ -1,4 +1,4 @@
-package io.github.mcengine.extension.addon.essential.home.util.db;
+package io.github.mcengine.extension.addon.essential.home.database;
 
 import org.bukkit.util.Vector;
 

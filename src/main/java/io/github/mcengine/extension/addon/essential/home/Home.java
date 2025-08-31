@@ -5,18 +5,20 @@ import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
 import io.github.mcengine.api.essential.extension.addon.IMCEngineEssentialAddOn;
 import io.github.mcengine.common.essential.MCEngineEssentialCommon;
 import io.github.mcengine.extension.addon.essential.home.command.HomeCommand;
+import io.github.mcengine.extension.addon.essential.home.gui.HomeGUIListener;
 import io.github.mcengine.extension.addon.essential.home.tabcompleter.HomeTabCompleter;
 import io.github.mcengine.extension.addon.essential.home.util.HomeConfigUtil;
-import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
-import io.github.mcengine.extension.addon.essential.home.util.db.HomeDBMySQL;
-import io.github.mcengine.extension.addon.essential.home.util.db.HomeDBPostgreSQL;
-import io.github.mcengine.extension.addon.essential.home.util.db.HomeDBSQLite;
+import io.github.mcengine.extension.addon.essential.home.database.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.database.mysql.HomeDBMySQL;
+import io.github.mcengine.extension.addon.essential.home.database.postgresql.HomeDBPostgreSQL;
+import io.github.mcengine.extension.addon.essential.home.database.sqlite.HomeDBSQLite;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.PluginManager;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -59,6 +61,7 @@ public class Home implements IMCEngineEssentialAddOn {
      *   <li>Validate {@code license} in config is {@code "free"}.</li>
      *   <li>Obtain a DB connection and prepare the tables via a dialect-specific {@link HomeDB}.</li>
      *   <li>Register the {@code /home} command through Bukkit's {@link CommandMap}.</li>
+     *   <li>Register the GUI listener for click handling.</li>
      * </ol>
      *
      * @param plugin The Bukkit plugin instance.
@@ -139,12 +142,16 @@ public class Home implements IMCEngineEssentialAddOn {
             };
 
             homeCommand.setDescription("Teleport to or manage your named homes.");
-            homeCommand.setUsage("/home <name> | /home tp <name> | /home set <name> | /home delete <name>");
+            homeCommand.setUsage("/home [opens GUI] | /home <name> | /home tp <name> | /home set <name> | /home delete <name>");
 
             // Register the command under the plugin's fallback prefix.
             commandMap.register(plugin.getName().toLowerCase(), homeCommand);
 
-            logger.info("Home AddOn enabled and /home registered.");
+            // Register GUI listener.
+            PluginManager pm = Bukkit.getPluginManager();
+            pm.registerEvents(new HomeGUIListener(homeDB, logger), plugin);
+
+            logger.info("Home AddOn enabled, /home registered, and GUI listener active.");
         } catch (Exception e) {
             logger.warning("Failed to initialize Home AddOn: " + e.getMessage());
             e.printStackTrace();

@@ -1,6 +1,6 @@
 package io.github.mcengine.extension.addon.essential.home.command;
 
-import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.database.HomeDB;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -13,7 +13,7 @@ import java.util.UUID;
  * <p>Contains static methods for:
  * <ul>
  *   <li>Validating home names</li>
- *   <li>Teleporting to a saved home</li>
+ *   <li>Teleporting to a saved home (used by {@code /home tp <name>})</li>
  *   <li>Adjusting per-player home limits</li>
  * </ul>
  * </p>

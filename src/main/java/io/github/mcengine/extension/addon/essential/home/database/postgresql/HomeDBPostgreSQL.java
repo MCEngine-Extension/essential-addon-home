@@ -1,6 +1,7 @@
-package io.github.mcengine.extension.addon.essential.home.util.db;
+package io.github.mcengine.extension.addon.essential.home.database.postgresql;
 
 import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
+import io.github.mcengine.extension.addon.essential.home.database.HomeDB;
 import org.bukkit.util.Vector;
 
 import java.sql.*;
@@ -9,10 +10,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * SQLite implementation of {@link HomeDB}.
- * Uses {@code INTEGER PRIMARY KEY AUTOINCREMENT} and simple FK constraints.
+ * PostgreSQL implementation of {@link HomeDB}.
+ * Uses {@code BIGSERIAL} for primary keys and standard FK constraints.
  */
-public class HomeDBSQLite implements HomeDB {
+public class HomeDBPostgreSQL implements HomeDB {
 
     /** Active JDBC connection supplied by the Essential module. */
     private final Connection conn;
@@ -26,7 +27,7 @@ public class HomeDBSQLite implements HomeDB {
      * @param conn   JDBC connection.
      * @param logger Logger wrapper.
      */
-    public HomeDBSQLite(Connection conn, MCEngineExtensionLogger logger) {
+    public HomeDBPostgreSQL(Connection conn, MCEngineExtensionLogger logger) {
         this.conn = conn;
         this.logger = logger;
         createTable();
@@ -36,22 +37,22 @@ public class HomeDBSQLite implements HomeDB {
     public void createTable() {
         final String createHome = """
             CREATE TABLE IF NOT EXISTS home (
-                home_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_uuid  VARCHAR(36) NOT NULL UNIQUE,
+                home_id      BIGSERIAL PRIMARY KEY,
+                player_uuid  VARCHAR(36) UNIQUE NOT NULL,
                 home_limit   INTEGER NOT NULL DEFAULT 3
             );
             """;
 
         final String createHomeData = """
             CREATE TABLE IF NOT EXISTS home_data (
-                home_data_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                home_data_id   BIGSERIAL PRIMARY KEY,
                 home_data_name TEXT NOT NULL,
-                loc_x          REAL NOT NULL,
-                loc_y          REAL NOT NULL,
-                loc_z          REAL NOT NULL,
+                loc_x          DOUBLE PRECISION NOT NULL,
+                loc_y          DOUBLE PRECISION NOT NULL,
+                loc_z          DOUBLE PRECISION NOT NULL,
                 player_uuid    VARCHAR(36) NOT NULL,
-                UNIQUE(player_uuid, home_data_name),
-                FOREIGN KEY (player_uuid) REFERENCES home(player_uuid) ON DELETE CASCADE
+                CONSTRAINT uq_player_name UNIQUE (player_uuid, home_data_name),
+                CONSTRAINT fk_home_player FOREIGN KEY (player_uuid) REFERENCES home(player_uuid) ON DELETE CASCADE
             );
             """;
 
@@ -59,27 +60,26 @@ public class HomeDBSQLite implements HomeDB {
              PreparedStatement ps2 = conn.prepareStatement(createHomeData)) {
             ps1.execute();
             ps2.execute();
-            logger.info("Home tables (SQLite) created or already exist.");
+            logger.info("Home tables (PostgreSQL) created or already exist.");
         } catch (SQLException e) {
-            logger.warning("Failed to create home tables (SQLite): " + e.getMessage());
+            logger.warning("Failed to create home tables (PostgreSQL): " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     @Override
     public void ensurePlayerRow(UUID playerUuid) {
+        // Upsert via INSERT ... ON CONFLICT for unique (player_uuid)
         final String upsert = """
             INSERT INTO home (player_uuid, home_limit)
-            SELECT ?, 3
-            WHERE NOT EXISTS (SELECT 1 FROM home WHERE player_uuid = ?)
+            VALUES (?, 3)
+            ON CONFLICT (player_uuid) DO NOTHING
             """;
         try (PreparedStatement ps = conn.prepareStatement(upsert)) {
-            final String id = playerUuid.toString();
-            ps.setString(1, id);
-            ps.setString(2, id);
+            ps.setString(1, playerUuid.toString());
             ps.executeUpdate();
         } catch (SQLException e) {
-            logger.warning("Failed to ensure player row (SQLite) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to ensure player row (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -94,7 +94,7 @@ public class HomeDBSQLite implements HomeDB {
                 if (rs.next()) return rs.getInt("home_limit");
             }
         } catch (SQLException e) {
-            logger.warning("Failed to read home_limit (SQLite) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to read home_limit (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
         return 3;
@@ -109,7 +109,7 @@ public class HomeDBSQLite implements HomeDB {
             ps.setString(2, playerUuid.toString());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            logger.warning("Failed to update home_limit (SQLite) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to update home_limit (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -124,7 +124,7 @@ public class HomeDBSQLite implements HomeDB {
                 if (rs.next()) return rs.getInt("c");
             }
         } catch (SQLException e) {
-            logger.warning("Failed to count homes (SQLite) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to count homes (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
         return 0;
@@ -140,7 +140,7 @@ public class HomeDBSQLite implements HomeDB {
                 return rs.next();
             }
         } catch (SQLException e) {
-            logger.warning("Failed to check existing home (SQLite) '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to check existing home (PostgreSQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -159,7 +159,7 @@ public class HomeDBSQLite implements HomeDB {
             ps.executeUpdate();
             return true;
         } catch (SQLException e) {
-            logger.warning("Failed to insert home (SQLite) '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to insert home (PostgreSQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -181,7 +181,7 @@ public class HomeDBSQLite implements HomeDB {
                 }
             }
         } catch (SQLException e) {
-            logger.warning("Failed to read home (SQLite) '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to read home (PostgreSQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
         return null;
@@ -195,7 +195,7 @@ public class HomeDBSQLite implements HomeDB {
             ps.setString(2, name);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            logger.warning("Failed to delete home (SQLite) '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to delete home (PostgreSQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -203,7 +203,7 @@ public class HomeDBSQLite implements HomeDB {
 
     @Override
     public List<String> listHomeNames(UUID playerUuid) {
-        final String query = "SELECT home_data_name FROM home_data WHERE player_uuid = ? ORDER BY home_data_name COLLATE NOCASE ASC";
+        final String query = "SELECT home_data_name FROM home_data WHERE player_uuid = ? ORDER BY home_data_name ASC";
         List<String> names = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, playerUuid.toString());
@@ -211,7 +211,7 @@ public class HomeDBSQLite implements HomeDB {
                 while (rs.next()) names.add(rs.getString("home_data_name"));
             }
         } catch (SQLException e) {
-            logger.warning("Failed to list homes (SQLite) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to list homes (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
         return names;

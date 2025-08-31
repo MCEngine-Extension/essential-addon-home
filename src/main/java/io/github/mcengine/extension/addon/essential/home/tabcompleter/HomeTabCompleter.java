@@ -1,6 +1,6 @@
 package io.github.mcengine.extension.addon.essential.home.tabcompleter;
 
-import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.database.HomeDB;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -16,12 +16,14 @@ import java.util.List;
  * Tab-completion for the {@code /home} command.
  * <p>
  * Offers base subcommands: {@code set}, {@code tp}, {@code delete}, {@code limit},
- * and dynamically suggests the player's saved home names. For {@code limit},
- * suggests actions, online players, and common integer amounts.
+ * and dynamically suggests the player's saved home names for relevant subcommands only.
+ * For {@code limit}, suggests actions, online players, and common integer amounts.
  */
 public class HomeTabCompleter implements TabCompleter {
 
-    /** DB accessor to fetch player home names for completion. */
+    /**
+     * DB accessor to fetch player home names for completion.
+     */
     private final HomeDB homeDB;
 
     /**
@@ -44,17 +46,15 @@ public class HomeTabCompleter implements TabCompleter {
      */
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        // If not a player, only suggest static subcommands.
+        // Prepare dynamic name list only for players.
         List<String> names = Collections.emptyList();
         if (sender instanceof Player p) {
             names = homeDB.listHomeNames(p.getUniqueId());
         }
 
         if (args.length == 1) {
-            // Blend subcommands + existing names; filter by prefix.
-            List<String> base = new ArrayList<>();
-            base.addAll(Arrays.asList("set", "tp", "delete", "limit"));
-            base.addAll(names);
+            // Only subcommands at position 1 now (no direct "/home <name>" support).
+            List<String> base = new ArrayList<>(Arrays.asList("set", "tp", "delete", "limit"));
             String prefix = args[0].toLowerCase();
             base.removeIf(s -> !s.toLowerCase().startsWith(prefix));
             return base;
@@ -100,5 +100,5 @@ public class HomeTabCompleter implements TabCompleter {
         }
 
         return Collections.emptyList();
-    }
+        }
 }
