@@ -1,7 +1,7 @@
-package io.github.mcengine.extension.addon.essential.home.util.gui;
+package io.github.mcengine.extension.addon.essential.home.gui;
 
 import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
-import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.database.HomeDB;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;

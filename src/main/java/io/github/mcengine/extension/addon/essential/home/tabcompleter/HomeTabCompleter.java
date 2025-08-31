@@ -1,6 +1,6 @@
 package io.github.mcengine.extension.addon.essential.home.tabcompleter;
 
-import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.database.HomeDB;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;

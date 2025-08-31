@@ -1,4 +1,4 @@
-package io.github.mcengine.extension.addon.essential.home.util.gui;
+package io.github.mcengine.extension.addon.essential.home.gui;
 
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;

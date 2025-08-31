@@ -1,6 +1,7 @@
-package io.github.mcengine.extension.addon.essential.home.util.db;
+package io.github.mcengine.extension.addon.essential.home.database.mysql;
 
 import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
+import io.github.mcengine.extension.addon.essential.home.database.HomeDB;
 import org.bukkit.util.Vector;
 
 import java.sql.*;
@@ -9,10 +10,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * PostgreSQL implementation of {@link HomeDB}.
- * Uses {@code BIGSERIAL} for primary keys and standard FK constraints.
+ * MySQL implementation of {@link HomeDB}.
+ * Uses {@code BIGINT AUTO_INCREMENT} and InnoDB with FK constraints.
  */
-public class HomeDBPostgreSQL implements HomeDB {
+public class HomeDBMySQL implements HomeDB {
 
     /** Active JDBC connection supplied by the Essential module. */
     private final Connection conn;
@@ -26,7 +27,7 @@ public class HomeDBPostgreSQL implements HomeDB {
      * @param conn   JDBC connection.
      * @param logger Logger wrapper.
      */
-    public HomeDBPostgreSQL(Connection conn, MCEngineExtensionLogger logger) {
+    public HomeDBMySQL(Connection conn, MCEngineExtensionLogger logger) {
         this.conn = conn;
         this.logger = logger;
         createTable();
@@ -36,49 +37,45 @@ public class HomeDBPostgreSQL implements HomeDB {
     public void createTable() {
         final String createHome = """
             CREATE TABLE IF NOT EXISTS home (
-                home_id      BIGSERIAL PRIMARY KEY,
-                player_uuid  VARCHAR(36) UNIQUE NOT NULL,
-                home_limit   INTEGER NOT NULL DEFAULT 3
-            );
+                home_id     BIGINT PRIMARY KEY AUTO_INCREMENT,
+                player_uuid VARCHAR(36) NOT NULL UNIQUE,
+                home_limit  INT NOT NULL DEFAULT 3
+            ) ENGINE=InnoDB;
             """;
 
         final String createHomeData = """
             CREATE TABLE IF NOT EXISTS home_data (
-                home_data_id   BIGSERIAL PRIMARY KEY,
-                home_data_name TEXT NOT NULL,
-                loc_x          DOUBLE PRECISION NOT NULL,
-                loc_y          DOUBLE PRECISION NOT NULL,
-                loc_z          DOUBLE PRECISION NOT NULL,
+                home_data_id   BIGINT PRIMARY KEY AUTO_INCREMENT,
+                home_data_name VARCHAR(255) NOT NULL,
+                loc_x          DOUBLE NOT NULL,
+                loc_y          DOUBLE NOT NULL,
+                loc_z          DOUBLE NOT NULL,
                 player_uuid    VARCHAR(36) NOT NULL,
-                CONSTRAINT uq_player_name UNIQUE (player_uuid, home_data_name),
+                UNIQUE KEY uniq_player_name (player_uuid, home_data_name),
                 CONSTRAINT fk_home_player FOREIGN KEY (player_uuid) REFERENCES home(player_uuid) ON DELETE CASCADE
-            );
+            ) ENGINE=InnoDB;
             """;
 
         try (PreparedStatement ps1 = conn.prepareStatement(createHome);
              PreparedStatement ps2 = conn.prepareStatement(createHomeData)) {
             ps1.execute();
             ps2.execute();
-            logger.info("Home tables (PostgreSQL) created or already exist.");
+            logger.info("Home tables (MySQL) created or already exist.");
         } catch (SQLException e) {
-            logger.warning("Failed to create home tables (PostgreSQL): " + e.getMessage());
+            logger.warning("Failed to create home tables (MySQL): " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     @Override
     public void ensurePlayerRow(UUID playerUuid) {
-        // Upsert via INSERT ... ON CONFLICT for unique (player_uuid)
-        final String upsert = """
-            INSERT INTO home (player_uuid, home_limit)
-            VALUES (?, 3)
-            ON CONFLICT (player_uuid) DO NOTHING
-            """;
+        // MySQL upsert via INSERT IGNORE (player_uuid is UNIQUE)
+        final String upsert = "INSERT IGNORE INTO home (player_uuid, home_limit) VALUES (?, 3)";
         try (PreparedStatement ps = conn.prepareStatement(upsert)) {
             ps.setString(1, playerUuid.toString());
             ps.executeUpdate();
         } catch (SQLException e) {
-            logger.warning("Failed to ensure player row (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to ensure player row (MySQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -93,7 +90,7 @@ public class HomeDBPostgreSQL implements HomeDB {
                 if (rs.next()) return rs.getInt("home_limit");
             }
         } catch (SQLException e) {
-            logger.warning("Failed to read home_limit (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to read home_limit (MySQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
         return 3;
@@ -108,7 +105,7 @@ public class HomeDBPostgreSQL implements HomeDB {
             ps.setString(2, playerUuid.toString());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            logger.warning("Failed to update home_limit (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to update home_limit (MySQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -123,7 +120,7 @@ public class HomeDBPostgreSQL implements HomeDB {
                 if (rs.next()) return rs.getInt("c");
             }
         } catch (SQLException e) {
-            logger.warning("Failed to count homes (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to count homes (MySQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
         return 0;
@@ -139,7 +136,7 @@ public class HomeDBPostgreSQL implements HomeDB {
                 return rs.next();
             }
         } catch (SQLException e) {
-            logger.warning("Failed to check existing home (PostgreSQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to check existing home (MySQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -158,7 +155,7 @@ public class HomeDBPostgreSQL implements HomeDB {
             ps.executeUpdate();
             return true;
         } catch (SQLException e) {
-            logger.warning("Failed to insert home (PostgreSQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to insert home (MySQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -180,7 +177,7 @@ public class HomeDBPostgreSQL implements HomeDB {
                 }
             }
         } catch (SQLException e) {
-            logger.warning("Failed to read home (PostgreSQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to read home (MySQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
         return null;
@@ -194,7 +191,7 @@ public class HomeDBPostgreSQL implements HomeDB {
             ps.setString(2, name);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            logger.warning("Failed to delete home (PostgreSQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to delete home (MySQL) '" + name + "' for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -210,7 +207,7 @@ public class HomeDBPostgreSQL implements HomeDB {
                 while (rs.next()) names.add(rs.getString("home_data_name"));
             }
         } catch (SQLException e) {
-            logger.warning("Failed to list homes (PostgreSQL) for " + playerUuid + ": " + e.getMessage());
+            logger.warning("Failed to list homes (MySQL) for " + playerUuid + ": " + e.getMessage());
             e.printStackTrace();
         }
         return names;

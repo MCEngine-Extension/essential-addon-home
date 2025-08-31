@@ -1,8 +1,8 @@
 package io.github.mcengine.extension.addon.essential.home.command;
 
-import io.github.mcengine.extension.addon.essential.home.util.db.HomeDB;
+import io.github.mcengine.extension.addon.essential.home.gui.HomeGUI;
+import io.github.mcengine.extension.addon.essential.home.database.HomeDB;
 import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
-import io.github.mcengine.extension.addon.essential.home.util.gui.HomeGUI;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
