@@ -1,10 +1,10 @@
 package io.github.mcengine.extension.addon.essential.home.database.sqlite;
 
 import io.github.mcengine.api.core.extension.logger.MCEngineExtensionLogger;
+import io.github.mcengine.common.essential.MCEngineEssentialCommon;
 import io.github.mcengine.extension.addon.essential.home.database.HomeDB;
 import org.bukkit.util.Vector;
 
-import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -15,22 +15,28 @@ import java.util.UUID;
  */
 public class HomeDBSQLite implements HomeDB {
 
-    /** Active JDBC connection supplied by the Essential module. */
-    private final Connection conn;
-
     /** Logger for reporting status and problems. */
     private final MCEngineExtensionLogger logger;
 
     /**
      * Constructs the DB helper and ensures the tables exist.
      *
-     * @param conn   JDBC connection.
      * @param logger Logger wrapper.
      */
-    public HomeDBSQLite(Connection conn, MCEngineExtensionLogger logger) {
-        this.conn = conn;
+    public HomeDBSQLite(MCEngineExtensionLogger logger) {
         this.logger = logger;
         createTable();
+    }
+
+    /** Returns the Essential DB facade. */
+    private static MCEngineEssentialCommon db() {
+        return MCEngineEssentialCommon.getApi();
+    }
+
+    /** Escapes a string for safe SQL literal usage. */
+    private static String q(String s) {
+        if (s == null) return "NULL";
+        return "'" + s.replace("'", "''") + "'";
     }
 
     @Override
@@ -56,14 +62,12 @@ public class HomeDBSQLite implements HomeDB {
             );
             """;
 
-        try (PreparedStatement ps1 = conn.prepareStatement(createHome);
-             PreparedStatement ps2 = conn.prepareStatement(createHomeData)) {
-            ps1.execute();
-            ps2.execute();
+        try {
+            db().executeQuery(createHome);
+            db().executeQuery(createHomeData);
             logger.info("Home tables (SQLite) created or already exist.");
-        } catch (SQLException e) {
+        } catch (Exception e) {
             logger.warning("Failed to create home tables (SQLite): " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -71,78 +75,64 @@ public class HomeDBSQLite implements HomeDB {
     public void ensurePlayerRow(UUID playerUuid) {
         final String upsert = """
             INSERT INTO home (player_uuid, home_limit)
-            SELECT ?, 3
-            WHERE NOT EXISTS (SELECT 1 FROM home WHERE player_uuid = ?)
-            """;
-        try (PreparedStatement ps = conn.prepareStatement(upsert)) {
-            final String id = playerUuid.toString();
-            ps.setString(1, id);
-            ps.setString(2, id);
-            ps.executeUpdate();
-        } catch (SQLException e) {
+            SELECT %s, 3
+            WHERE NOT EXISTS (SELECT 1 FROM home WHERE player_uuid = %s)
+            """.formatted(q(playerUuid.toString()), q(playerUuid.toString()));
+        try {
+            db().executeQuery(upsert);
+        } catch (Exception e) {
             logger.warning("Failed to ensure player row (SQLite) for " + playerUuid + ": " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
     @Override
     public int getHomeLimit(UUID playerUuid) {
         ensurePlayerRow(playerUuid);
-        final String q = "SELECT home_limit FROM home WHERE player_uuid = ?";
-        try (PreparedStatement ps = conn.prepareStatement(q)) {
-            ps.setString(1, playerUuid.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt("home_limit");
-            }
-        } catch (SQLException e) {
+        final String q = "SELECT home_limit FROM home WHERE player_uuid = " + q(playerUuid.toString());
+        try {
+            Integer v = db().getValue(q, Integer.class);
+            return v == null ? 3 : v;
+        } catch (Exception e) {
             logger.warning("Failed to read home_limit (SQLite) for " + playerUuid + ": " + e.getMessage());
-            e.printStackTrace();
+            return 3;
         }
-        return 3;
     }
 
     @Override
     public boolean setHomeLimit(UUID playerUuid, int newLimit) {
         ensurePlayerRow(playerUuid);
-        final String upd = "UPDATE home SET home_limit = ? WHERE player_uuid = ?";
-        try (PreparedStatement ps = conn.prepareStatement(upd)) {
-            ps.setInt(1, newLimit);
-            ps.setString(2, playerUuid.toString());
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
+        final String upd = "UPDATE home SET home_limit = " + newLimit +
+                " WHERE player_uuid = " + q(playerUuid.toString());
+        try {
+            db().executeQuery(upd);
+            return true;
+        } catch (Exception e) {
             logger.warning("Failed to update home_limit (SQLite) for " + playerUuid + ": " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
 
     @Override
     public int getHomeCount(UUID playerUuid) {
-        final String q = "SELECT COUNT(1) AS c FROM home_data WHERE player_uuid = ?";
-        try (PreparedStatement ps = conn.prepareStatement(q)) {
-            ps.setString(1, playerUuid.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt("c");
-            }
-        } catch (SQLException e) {
+        final String q = "SELECT COUNT(1) FROM home_data WHERE player_uuid = " + q(playerUuid.toString());
+        try {
+            Integer c = db().getValue(q, Integer.class);
+            return c == null ? 0 : c;
+        } catch (Exception e) {
             logger.warning("Failed to count homes (SQLite) for " + playerUuid + ": " + e.getMessage());
-            e.printStackTrace();
+            return 0;
         }
-        return 0;
     }
 
     @Override
     public boolean homeExists(UUID playerUuid, String name) {
-        final String sql = "SELECT 1 FROM home_data WHERE player_uuid = ? AND home_data_name = ? LIMIT 1";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, playerUuid.toString());
-            ps.setString(2, name);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        } catch (SQLException e) {
+        final String sql = "SELECT 1 FROM home_data WHERE player_uuid = " + q(playerUuid.toString()) +
+                " AND home_data_name = " + q(name) + " LIMIT 1";
+        try {
+            Integer one = db().getValue(sql, Integer.class);
+            return one != null;
+        } catch (Exception e) {
             logger.warning("Failed to check existing home (SQLite) '" + name + "' for " + playerUuid + ": " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -150,70 +140,63 @@ public class HomeDBSQLite implements HomeDB {
     @Override
     public boolean setHome(UUID playerUuid, String name, double x, double y, double z) {
         ensurePlayerRow(playerUuid);
-        final String insert = "INSERT INTO home_data (home_data_name, loc_x, loc_y, loc_z, player_uuid) VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(insert)) {
-            ps.setString(1, name);
-            ps.setDouble(2, x);
-            ps.setDouble(3, y);
-            ps.setDouble(4, z);
-            ps.setString(5, playerUuid.toString());
-            ps.executeUpdate();
+        final String insert = "INSERT INTO home_data (home_data_name, loc_x, loc_y, loc_z, player_uuid) VALUES (" +
+                q(name) + ", " + x + ", " + y + ", " + z + ", " + q(playerUuid.toString()) + ")";
+        try {
+            db().executeQuery(insert);
             return true;
-        } catch (SQLException e) {
+        } catch (Exception e) {
             logger.warning("Failed to insert home (SQLite) '" + name + "' for " + playerUuid + ": " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
 
     @Override
     public Vector getHome(UUID playerUuid, String name) {
-        final String query = "SELECT loc_x, loc_y, loc_z FROM home_data WHERE player_uuid = ? AND home_data_name = ?";
-        try (PreparedStatement ps = conn.prepareStatement(query)) {
-            ps.setString(1, playerUuid.toString());
-            ps.setString(2, name);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return new Vector(
-                        rs.getDouble("loc_x"),
-                        rs.getDouble("loc_y"),
-                        rs.getDouble("loc_z")
-                    );
-                }
-            }
-        } catch (SQLException e) {
+        // Pack vector as text using SQLite concatenation
+        final String query = "SELECT (CAST(loc_x AS TEXT) || ',' || CAST(loc_y AS TEXT) || ',' || CAST(loc_z AS TEXT)) " +
+                "FROM home_data WHERE player_uuid = " + q(playerUuid.toString()) +
+                " AND home_data_name = " + q(name);
+        try {
+            String packed = db().getValue(query, String.class);
+            if (packed == null || packed.isBlank()) return null;
+            String[] parts = packed.split(",", 3);
+            if (parts.length < 3) return null;
+            return new Vector(Double.parseDouble(parts[0]), Double.parseDouble(parts[1]), Double.parseDouble(parts[2]));
+        } catch (Exception e) {
             logger.warning("Failed to read home (SQLite) '" + name + "' for " + playerUuid + ": " + e.getMessage());
-            e.printStackTrace();
+            return null;
         }
-        return null;
     }
 
     @Override
     public boolean deleteHome(UUID playerUuid, String name) {
-        final String delete = "DELETE FROM home_data WHERE player_uuid = ? AND home_data_name = ?";
-        try (PreparedStatement ps = conn.prepareStatement(delete)) {
-            ps.setString(1, playerUuid.toString());
-            ps.setString(2, name);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
+        final String delete = "DELETE FROM home_data WHERE player_uuid = " + q(playerUuid.toString()) +
+                " AND home_data_name = " + q(name);
+        try {
+            db().executeQuery(delete);
+            return true;
+        } catch (Exception e) {
             logger.warning("Failed to delete home (SQLite) '" + name + "' for " + playerUuid + ": " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
 
     @Override
     public List<String> listHomeNames(UUID playerUuid) {
-        final String query = "SELECT home_data_name FROM home_data WHERE player_uuid = ? ORDER BY home_data_name COLLATE NOCASE ASC";
+        // Use GROUP_CONCAT to return a comma-separated list
+        final String query = "SELECT GROUP_CONCAT(home_data_name, ',') " +
+                "FROM home_data WHERE player_uuid = " + q(playerUuid.toString()) +
+                " ORDER BY home_data_name COLLATE NOCASE ASC";
         List<String> names = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(query)) {
-            ps.setString(1, playerUuid.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) names.add(rs.getString("home_data_name"));
+        try {
+            String packed = db().getValue(query, String.class);
+            if (packed == null || packed.isBlank()) return names;
+            for (String s : packed.split(",")) {
+                if (!s.isEmpty()) names.add(s);
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             logger.warning("Failed to list homes (SQLite) for " + playerUuid + ": " + e.getMessage());
-            e.printStackTrace();
         }
         return names;
     }

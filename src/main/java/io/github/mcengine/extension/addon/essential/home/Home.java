@@ -22,7 +22,6 @@ import org.bukkit.plugin.PluginManager;
 
 import java.io.File;
 import java.lang.reflect.Field;
-import java.sql.Connection;
 
 /**
  * Main class for the Essential Home AddOn.
@@ -59,7 +58,7 @@ public class Home implements IMCEngineEssentialAddOn {
      *   <li>Initialize a dedicated logger.</li>
      *   <li>Create/verify {@code config.yml} using {@link HomeConfigUtil}.</li>
      *   <li>Validate {@code license} in config is {@code "free"}.</li>
-     *   <li>Obtain a DB connection and prepare the tables via a dialect-specific {@link HomeDB}.</li>
+     *   <li>Pick dialect-specific {@link HomeDB} using the main config.</li>
      *   <li>Register the {@code /home} command through Bukkit's {@link CommandMap}.</li>
      *   <li>Register the GUI listener for click handling.</li>
      * </ol>
@@ -85,9 +84,6 @@ public class Home implements IMCEngineEssentialAddOn {
                 return;
             }
 
-            // Obtain DB connection from Essential common API.
-            Connection conn = MCEngineEssentialCommon.getApi().getDBConnection();
-
             // Pick DB implementation based on main plugin config: database.type = sqlite|mysql|postgresql
             String dbType;
             try {
@@ -98,12 +94,12 @@ public class Home implements IMCEngineEssentialAddOn {
             }
 
             switch (dbType == null ? "sqlite" : dbType.toLowerCase()) {
-                case "mysql" -> this.homeDB = new HomeDBMySQL(conn, logger);
-                case "postgresql", "postgres" -> this.homeDB = new HomeDBPostgreSQL(conn, logger);
-                case "sqlite" -> this.homeDB = new HomeDBSQLite(conn, logger);
+                case "mysql" -> this.homeDB = new HomeDBMySQL(logger);
+                case "postgresql", "postgres" -> this.homeDB = new HomeDBPostgreSQL(logger);
+                case "sqlite" -> this.homeDB = new HomeDBSQLite(logger);
                 default -> {
                     logger.warning("Unknown database.type='" + dbType + "', defaulting to SQLite.");
-                    this.homeDB = new HomeDBSQLite(conn, logger);
+                    this.homeDB = new HomeDBSQLite(logger);
                 }
             }
 
